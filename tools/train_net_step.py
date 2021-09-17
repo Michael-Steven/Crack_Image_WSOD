@@ -159,8 +159,10 @@ def main():
     timers['image'].tic()
 
     images = list()
-    image_path = '/Users/michaelshan/Documents/BUAA/实验室项目/数据集/隐裂/切过的/combine/'
-    proposal_files = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/data_yinlie.pkl','rb'))
+    image_path = '/home/syb/documents/Crack_Image_WSOD/data/cut/combine/'
+    proposal_files = pickle.load(open('/home/syb/documents/Crack_Image_WSOD/data/data_yinlie.pkl','rb'))
+    # image_path = '/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/cut/combine/'
+    # proposal_files = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/data_yinlie.pkl','rb'))
     for image_item in proposal_files:
         image_name = image_item['image']
         # print(image_path + image_name)
