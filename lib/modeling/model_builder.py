@@ -80,15 +80,15 @@ class Generalized_RCNN(nn.Module):
             self.Conv_Body.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale)
         self.Box_MIL_Outs = pcl_heads.mil_outputs(
             self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES)
-        self.Box_Refine_Outs = pcl_heads.refine_outputs(
-            self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES + 1)
+        # self.Box_Refine_Outs = pcl_heads.refine_outputs(
+        #     self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES + 1)
 
-        self.Refine_Losses = [OICRLosses() for i in range(cfg.REFINE_TIMES)]
+        # self.Refine_Losses = [OICRLosses() for i in range(cfg.REFINE_TIMES)]
 
-        if cfg.MODEL.WITH_FRCNN:
-            self.FRCNN_Outs = fast_rcnn_heads.fast_rcnn_outputs(
-                self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES + 1)
-            self.Cls_Loss = OICRLosses()
+        # if cfg.MODEL.WITH_FRCNN:
+        #     self.FRCNN_Outs = fast_rcnn_heads.fast_rcnn_outputs(
+        #         self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES + 1)
+        #     self.Cls_Loss = OICRLosses()
 
         self._init_modules()
 
@@ -123,11 +123,11 @@ class Generalized_RCNN(nn.Module):
 
         box_feat = self.Box_Head(blob_conv, rois)
         mil_score = self.Box_MIL_Outs(box_feat)
-        refine_score = self.Box_Refine_Outs(box_feat)
-        if cfg.MODEL.WITH_FRCNN:
-            cls_score, bbox_pred = self.FRCNN_Outs(box_feat)
+        # refine_score = self.Box_Refine_Outs(box_feat)
+        # if cfg.MODEL.WITH_FRCNN:
+        #     cls_score, bbox_pred = self.FRCNN_Outs(box_feat)
 
-        device = box_feat.device
+        # device = box_feat.device
 
         if self.training:
             return_dict['losses'] = {}
@@ -137,44 +137,44 @@ class Generalized_RCNN(nn.Module):
             loss_im_cls = pcl_heads.mil_losses(im_cls_score, labels)
             return_dict['losses']['loss_im_cls'] = loss_im_cls
 
-            # refinement loss
-            boxes = rois.data.cpu().numpy()
-            im_labels = labels.data.cpu().numpy()
-            boxes = boxes[:, 1:]
+            # # refinement loss
+            # boxes = rois.data.cpu().numpy()
+            # im_labels = labels.data.cpu().numpy()
+            # boxes = boxes[:, 1:]
 
-            for i_refine, refine in enumerate(refine_score):
-                if i_refine == 0:
-                    pcl_output = OICR(boxes, mil_score, im_labels, refine)
-                else:
-                    pcl_output = OICR(boxes, refine_score[i_refine - 1],
-                                      im_labels, refine)
+            # for i_refine, refine in enumerate(refine_score):
+            #     if i_refine == 0:
+            #         pcl_output = OICR(boxes, mil_score, im_labels, refine)
+            #     else:
+            #         pcl_output = OICR(boxes, refine_score[i_refine - 1],
+            #                           im_labels, refine)
 
-                refine_loss = self.Refine_Losses[i_refine](
-                    refine,
-                    Variable(torch.from_numpy(pcl_output['labels'])).to(device),
-                    Variable(torch.from_numpy(pcl_output['cls_loss_weights'])).to(device),
-                    Variable(torch.from_numpy(pcl_output['gt_assignment'])).to(device))
+            #     refine_loss = self.Refine_Losses[i_refine](
+            #         refine,
+            #         Variable(torch.from_numpy(pcl_output['labels'])).to(device),
+            #         Variable(torch.from_numpy(pcl_output['cls_loss_weights'])).to(device),
+            #         Variable(torch.from_numpy(pcl_output['gt_assignment'])).to(device))
 
-                if i_refine == 0:
-                    refine_loss *= 3.0
+            #     if i_refine == 0:
+            #         refine_loss *= 3.0
 
-                return_dict['losses']['refine_loss%d' % i_refine] = refine_loss.clone()
+            #     return_dict['losses']['refine_loss%d' % i_refine] = refine_loss.clone()
 
-            if cfg.MODEL.WITH_FRCNN:
-                labels, cls_loss_weights, bbox_targets, bbox_inside_weights, \
-                    bbox_outside_weights = fast_rcnn_heads.get_fast_rcnn_targets(
-                        boxes, refine_score, im_labels)
+            # if cfg.MODEL.WITH_FRCNN:
+            #     labels, cls_loss_weights, bbox_targets, bbox_inside_weights, \
+            #         bbox_outside_weights = fast_rcnn_heads.get_fast_rcnn_targets(
+            #             boxes, refine_score, im_labels)
 
-                cls_loss, bbox_loss = fast_rcnn_heads.fast_rcnn_losses(
-                    cls_score, bbox_pred,
-                    Variable(torch.from_numpy(labels)).to(device),
-                    Variable(torch.from_numpy(cls_loss_weights)).to(device),
-                    Variable(torch.from_numpy(bbox_targets)).to(device),
-                    Variable(torch.from_numpy(bbox_inside_weights)).to(device),
-                    Variable(torch.from_numpy(bbox_outside_weights)).to(device))
+            #     cls_loss, bbox_loss = fast_rcnn_heads.fast_rcnn_losses(
+            #         cls_score, bbox_pred,
+            #         Variable(torch.from_numpy(labels)).to(device),
+            #         Variable(torch.from_numpy(cls_loss_weights)).to(device),
+            #         Variable(torch.from_numpy(bbox_targets)).to(device),
+            #         Variable(torch.from_numpy(bbox_inside_weights)).to(device),
+            #         Variable(torch.from_numpy(bbox_outside_weights)).to(device))
 
-                return_dict['losses']['cls_loss'] = cls_loss
-                return_dict['losses']['bbox_loss'] = bbox_loss
+            #     return_dict['losses']['cls_loss'] = cls_loss
+            #     return_dict['losses']['bbox_loss'] = bbox_loss
 
             # pytorch0.4 bug on gathering scalar(0-dim) tensors
             for k, v in return_dict['losses'].items():
@@ -184,10 +184,10 @@ class Generalized_RCNN(nn.Module):
             # Testing
             return_dict['rois'] = rois
             return_dict['mil_score'] = mil_score
-            return_dict['refine_score'] = refine_score
-            if cfg.MODEL.WITH_FRCNN:
-                return_dict['cls_score'] = cls_score
-                return_dict['bbox_pred'] = bbox_pred
+            # return_dict['refine_score'] = refine_score
+            # if cfg.MODEL.WITH_FRCNN:
+            #     return_dict['cls_score'] = cls_score
+            #     return_dict['bbox_pred'] = bbox_pred
 
         return return_dict
 
