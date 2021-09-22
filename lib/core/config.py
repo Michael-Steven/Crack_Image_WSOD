@@ -24,6 +24,8 @@ __C = AttrDict()
 #   from fast_rcnn_config import cfg
 cfg = __C
 
+__C.IMAGEPATH = ''
+__C.PROPOSAL_FILE_PATH = ''
 
 # Random note: avoid using '.ON' as a config key since yaml converts it to True;
 # prefer 'ENABLED' instead

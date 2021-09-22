@@ -1,5 +1,5 @@
 import _init_paths
-from datasets.crack_dataset import CrackDataSet
+from datasets.crack_dataset import CrackDataSet, collate_minibatch
 from modeling.model_builder import Generalized_RCNN
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
 from collections import defaultdict
@@ -37,9 +37,9 @@ def parse_args():
     """Parse input arguments"""
     parser = argparse.ArgumentParser(description='Train a X-RCNN network')
 
-    parser.add_argument(
-        '--dataset', dest='dataset', required=True,
-        help='Dataset to use')
+    # parser.add_argument(
+    #     '--dataset', dest='dataset', required=True,
+    #     help='Dataset to use')
     parser.add_argument(
         '--cfg', dest='cfg_file', required=True,
         help='Config file for training (and optionally testing)')
@@ -146,6 +146,9 @@ def main():
         raise ValueError("Need Cuda device to run !")
 
     cfg.MODEL.NUM_CLASSES = 2
+    cfg_from_file(args.cfg_file)
+    if args.set_cfgs is not None:
+        cfg_from_list(args.set_cfgs)
 
     ### Adaptively adjust some configs ###
     original_batch_size = cfg.NUM_GPUS * cfg.TRAIN.IMS_PER_BATCH
@@ -165,6 +168,14 @@ def main():
     print('    NUM_GPUS:             %d --> %d' % (original_num_gpus, cfg.NUM_GPUS))
     print('    IMS_PER_BATCH:        %d --> %d' % (original_ims_per_batch, cfg.TRAIN.IMS_PER_BATCH))
 
+    ### Adjust learning based on batch size change linearly
+    # For iter_size > 1, gradients are `accumulated`, so lr is scaled based
+    # on batch_size instead of effective_batch_size
+    old_base_lr = cfg.SOLVER.BASE_LR
+    cfg.SOLVER.BASE_LR *= args.batch_size / original_batch_size
+    print('Adjust BASE_LR linearly according to batch_size change:\n'
+          '    BASE_LR: {} --> {}'.format(old_base_lr, cfg.SOLVER.BASE_LR))
+
     ### Adjust solver steps
     step_scale = original_batch_size / effective_batch_size
     old_solver_steps = cfg.SOLVER.STEPS
@@ -180,39 +191,42 @@ def main():
         cfg.DATA_LOADER.NUM_THREADS = args.num_workers
     print('Number of data loading threads: %d' % cfg.DATA_LOADER.NUM_THREADS)
 
-
-
-
-
-
+    ### Overwrite some solver settings from command line arguments
+    if args.optimizer is not None:
+        cfg.SOLVER.TYPE = args.optimizer
+    if args.lr is not None:
+        cfg.SOLVER.BASE_LR = args.lr
+    if args.lr_decay_gamma is not None:
+        cfg.SOLVER.GAMMA = args.lr_decay_gamma
+    assert_and_infer_cfg()
 
     ### Dataset ###
     timers = defaultdict(Timer)
     timers['image'].tic()
 
-    images = list()
-    image_path = '/home/syb/documents/Crack_Image_WSOD/data/cut/combine/'
-    proposal_files = pickle.load(open('/home/syb/documents/Crack_Image_WSOD/data/data_yinlie.pkl','rb'))
+    proposal_files = pickle.load(open(cfg.PROPOSAL_FILE_PATH,'rb'))
     # image_path = '/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/cut/combine/'
     # proposal_files = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/data_yinlie.pkl','rb'))
-    for image_item in proposal_files:
-        image_name = image_item['image']
-        # print(image_path + image_name)
-        image = cv2.imread(image_path + image_name)
-        images.append(image)
+    # for image_item in proposal_files:
+    #     image_name = image_item['image']
+    #     # print(image_path + image_name)
+    #     image = cv2.imread(image_path + image_name)
+    #     images.append(image)
     dataset = CrackDataSet(
-        images,
         proposal_files,
+        cfg.MODEL.NUM_CLASSES,
         training=True)
-    num_epoch = 1     # number of epochs to train on
+    # num_epoch = 1     # number of epochs to train on
     batch_size = 1  # training batch size
     dataloader = torch.utils.data.DataLoader(
         dataset, 
         batch_size=batch_size, 
-        shuffle=True)
+        shuffle=True, 
+        collate_fn=collate_minibatch)
+    dataiterator = iter(dataloader)
 
     timers['image'].toc()
-    logger.info('Takes %.2f sec(s) to construct roidb', timers['roidb'].average_time)
+    logger.info('Takes %.2f sec(s) to construct image data', timers['image'].average_time)
 
     # for _ in range(num_epoch):
     #     # model.train()
@@ -226,7 +240,7 @@ def main():
     if cfg.CUDA:
         pcl.cuda()
 
-        ### Optimizer ###
+    ### Optimizer ###
     bias_params = []
     bias_param_names = []
     nonbias_params = []
