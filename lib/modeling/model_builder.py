@@ -179,6 +179,7 @@ class Generalized_RCNN(nn.Module):
             # pytorch0.4 bug on gathering scalar(0-dim) tensors
             for k, v in return_dict['losses'].items():
                 return_dict['losses'][k] = v.unsqueeze(0)
+            return_dict['mil_score'] = mil_score
 
         else:
             # Testing

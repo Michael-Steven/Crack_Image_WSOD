@@ -345,6 +345,7 @@ def main():
     try:
         logger.info('Training starts !')
         step = args.start_step
+        
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -390,6 +391,12 @@ def main():
                         input_data[key] = list(map(Variable, input_data[key]))
 
                 net_outputs = pcl(**input_data)
+                scores = net_outputs['mil_score'].data.cpu().numpy()
+                labels = input_data['labels']
+
+                print(scores.sum(axis=0))
+                print(labels)
+
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
                 loss.backward(retain_graph=True)
