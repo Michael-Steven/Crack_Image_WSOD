@@ -21,7 +21,7 @@ import nn as mynn
 import utils.blob as blob_utils
 import numpy as np
 
-from datasets.crack_dataset import get_minibatch
+from datasets.crack_dataset import CrackDataSet, collate_minibatch
 
 # OpenCL may be enabled by default in OpenCV3; disable it because it's not
 # thread safe and causes unwanted GPU memory allocations.
@@ -146,79 +146,93 @@ if __name__ == '__main__':
                 args.load_detectron))
             time.sleep(10)
 
+    test_proposal_files = pickle.load(open(cfg.TEST_PROPOSAL_FILE_PATH, 'rb'))
+    dataset = CrackDataSet(
+        test_proposal_files,
+        cfg.MODEL.NUM_CLASSES,
+        training=True)
+    # num_epoch = 1     # number of epochs to train on
+    batch_size = 1  # training batch size
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=collate_minibatch)
+    dataiterator = iter(dataloader)
+    test_size = len(dataset)
+
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
     model = initialize_model_from_cfg(args, gpu_id=0)
 
-    test_proposal_files = pickle.load(open(cfg.TEST_PROPOSAL_FILE_PATH, 'rb'))
+    for _ in range(test_size):
+        input_data = next(dataiterator)
+        net_outputs = model(**input_data)
+        scores = net_outputs['mil_score'].data.cpu().numpy()
+        labels = input_data['labels']
 
-    for i in len(test_proposal_files):
-        single_db = [test_proposal_files[i]]
-        blobs = get_minibatch(single_db, cfg.MODEL.NUM_CLASSES)
-        # print(image.shape)
-        # print(len(proposal['bbox']))
-        blobs['data'] = blobs['data'].squeeze(axis=0)
+        score = scores.sum(axis=0)
+        label = labels[0].numpy().squeeze(axis=0).squeeze(axis=0)
 
+        if label[1] == 1 and score[1] > score[0]:
+            tp += 1
+        if label[0] == 1 and score[1] > score[0]:
+            fp += 1
+        if label[0] == 1 and score[0] > score[1]:
+            tn += 1
+        if label[1] == 1 and score[0] > score[1]:
+            fn += 1
 
+    print("TP: %3d, FP: %3d, TN: %3d, FN: %3d\nAccuracy : %3d/%3d, %.1f%%\nRecall   : %3d/%3d, %.1f%%\nPrecision: %3d/%3d, %.1f%%\n" %
+          (tp, fp, tn, fn, tp + tn, tp + fp + tn + fn, (tp + tn) / (tp + fp + tn + fn) * 100,
+           tp, tp + fn, tp / (tp + fn) * 100, tp, tp + fp, tp / (tp + fp) * 100))
 
+    # im = cv2.imread("/home/syb/documents/Crack_Image_WSOD/data/cut/combine/1_1_1_result.jpg")
 
+    # ## region
+    # ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
+    # ss.setBaseImage(im)
+    # ss.switchToSelectiveSearchFast()
+    # rects = ss.process()
+    # numShowRects = 500
+    # rois_blob = np.zeros((0, 5), dtype=np.float32)
 
+    # inputs = dict()
+    # for i, rect in enumerate(rects):
+    #     # draw rectangle for region proposal till numShowRects
+    #     if i < numShowRects:
+    #         x, y, w, h = rect
+    #         if w > 10 * h or h > 10 * w:
+    #             continue
+    #         rois_blob_this_image = np.array([0, x, y, x + w, y + h])
+    #         rois_blob = np.vstack((rois_blob, rois_blob_this_image))
+    #     else:
+    #         break
+    # inputs['rois'] = [torch.from_numpy(rois_blob).type(torch.float32)]
+    # inputs['labels'] = [torch.from_numpy(np.array([[0.0, 0.0]])).type(torch.float32)]
 
+    # ## image
+    # img = im.astype(np.float32, copy=False) - cfg.PIXEL_MEANS
+    # inputs['data'] = [torch.from_numpy(blob_utils.im_list_to_blob(img))]
 
+    # ## inference
+    # return_dict = model(**inputs)
 
-    im = cv2.imread("/home/syb/documents/Crack_Image_WSOD/data/cut/combine/1_1_1_result.jpg")
+    # scores = return_dict['mil_score'].data.cpu().numpy()
 
-    ## region
-    ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
-    ss.setBaseImage(im)
-    ss.switchToSelectiveSearchFast()
-    rects = ss.process()
-    numShowRects = 500
-    rois_blob = np.zeros((0, 5), dtype=np.float32)
+    # print(scores.sum(axis=0))
 
-    inputs = dict()
-    for i, rect in enumerate(rects):
-        # draw rectangle for region proposal till numShowRects
-        if i < numShowRects:
-            x, y, w, h = rect
-            if w > 10 * h or h > 10 * w:
-                continue
-            rois_blob_this_image = np.array([0, x, y, x + w, y + h])
-            rois_blob = np.vstack((rois_blob, rois_blob_this_image))
-        else:
-            break
-    inputs['rois'] = [torch.from_numpy(rois_blob).type(torch.float32)]
-    inputs['labels'] = [torch.from_numpy(np.array([[0.0, 0.0]])).type(torch.float32)]
+    # # print(scores)
 
+    # for i in range(len(scores)):
+    #     if scores[i][0] > 0.01 or scores[i][1] > 0.01:
+    #         # print(rois_blob[i][1])
+    #         # print(rois_blob[i][2])
+    #         # print(rois_blob[i][3])
+    #         # print(rois_blob[i][4])
+    #         cv2.rectangle(im, (int(rois_blob[i][1]), int(rois_blob[i][2])),
+    #             (int(rois_blob[i][3]), int(rois_blob[i][4])), (255, 0, 0), 2)
 
-    ## image
-    img = im.astype(np.float32, copy=False) - cfg.PIXEL_MEANS
-    inputs['data'] = [torch.from_numpy(blob_utils.im_list_to_blob(img))]
-
-
-    # print(inputs)
-
-    ## inference
-    return_dict = model(**inputs)
-
-    scores = return_dict['mil_score'].data.cpu().numpy()
-
-    print(scores.sum(axis=0))
-
-    # print(scores)
-
-    for i in range(len(scores)):
-        if scores[i][0] > 0.01 or scores[i][1] > 0.01:
-            # print(rois_blob[i][1])
-            # print(rois_blob[i][2])
-            # print(rois_blob[i][3])
-            # print(rois_blob[i][4])
-            cv2.rectangle(im, (int(rois_blob[i][1]), int(rois_blob[i][2])), 
-                (int(rois_blob[i][3]), int(rois_blob[i][4])), (255, 0, 0), 2)
-
-    cv2.imwrite("./output.jpg", im)
-
-
-    # run_inference(
-    #     args,
-    #     ind_range=args.range,
-    #     multi_gpu_testing=args.multi_gpu_testing,
-    #     check_expected_results=True)
+    # cv2.imwrite("./output.jpg", im)
