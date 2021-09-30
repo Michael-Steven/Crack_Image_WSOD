@@ -125,7 +125,7 @@ class TrainingStats(object):
 
     def LogIterStats(self, cur_iter, lr):
         """Log the tracked statistics."""
-        if (cur_iter % self.LOG_PERIOD == 0 or
+        if (cur_iter % self.LOG_PERIOD == self.LOG_PERIOD - 1 or
                 cur_iter == cfg.SOLVER.MAX_ITER - 1):
             stats = self.GetStats(cur_iter, lr)
             log_stats(stats, self.misc_args)

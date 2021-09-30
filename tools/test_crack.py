@@ -8,6 +8,7 @@ import sys
 import time
 
 import torch
+import pickle
 
 import _init_paths  # pylint: disable=unused-import
 from core.config import cfg, merge_cfg_from_file, merge_cfg_from_list, assert_and_infer_cfg
@@ -19,6 +20,8 @@ from utils.detectron_weight_helper import load_detectron_weight
 import nn as mynn
 import utils.blob as blob_utils
 import numpy as np
+
+from datasets.crack_dataset import get_minibatch
 
 # OpenCL may be enabled by default in OpenCV3; disable it because it's not
 # thread safe and causes unwanted GPU memory allocations.
@@ -145,6 +148,22 @@ if __name__ == '__main__':
 
     model = initialize_model_from_cfg(args, gpu_id=0)
 
+    test_proposal_files = pickle.load(open(cfg.TEST_PROPOSAL_FILE_PATH, 'rb'))
+
+    for i in len(test_proposal_files):
+        single_db = [test_proposal_files[i]]
+        blobs = get_minibatch(single_db, cfg.MODEL.NUM_CLASSES)
+        # print(image.shape)
+        # print(len(proposal['bbox']))
+        blobs['data'] = blobs['data'].squeeze(axis=0)
+
+
+
+
+
+
+
+
     im = cv2.imread("/home/syb/documents/Crack_Image_WSOD/data/cut/combine/1_1_1_result.jpg")
 
     ## region
@@ -152,7 +171,7 @@ if __name__ == '__main__':
     ss.setBaseImage(im)
     ss.switchToSelectiveSearchFast()
     rects = ss.process()
-    numShowRects = 300
+    numShowRects = 500
     rois_blob = np.zeros((0, 5), dtype=np.float32)
 
     inputs = dict()
@@ -160,6 +179,8 @@ if __name__ == '__main__':
         # draw rectangle for region proposal till numShowRects
         if i < numShowRects:
             x, y, w, h = rect
+            if w > 10 * h or h > 10 * w:
+                continue
             rois_blob_this_image = np.array([0, x, y, x + w, y + h])
             rois_blob = np.vstack((rois_blob, rois_blob_this_image))
         else:
@@ -193,7 +214,7 @@ if __name__ == '__main__':
             cv2.rectangle(im, (int(rois_blob[i][1]), int(rois_blob[i][2])), 
                 (int(rois_blob[i][3]), int(rois_blob[i][4])), (255, 0, 0), 2)
 
-    # cv2.imwrite("./output.jpg", im)
+    cv2.imwrite("./output.jpg", im)
 
 
     # run_inference(

@@ -3,21 +3,18 @@ import os
 import pickle
 
 dataset = list()
+dataset_test = list()
 # dataset = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/data_yinlie.pkl','rb'))
 
+img_cnt = 0
 for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/0/'):
     for file in files:
         # for macos
         if file == '.DS_Store':
             continue
-
+        img_cnt += 1
         img_path = root + file
         im = cv2.imread(img_path)
-        # print(im.shape)
-        # resize image
-        # newHeight = 400
-        # newWidth = int(im.shape[1] * newHeight / im.shape[0])
-        # im = cv2.resize(im, (newWidth, newHeight))
 
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
@@ -25,7 +22,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         # set input image on which we will run segmentation
         ss.setBaseImage(im)
 
-        method = 'f'  # f=fast, q=quality
+        method = 'q'  # f=fast, q=quality
 
         if method == 'f':  # fast but low recall
             ss.switchToSelectiveSearchFast()
@@ -38,7 +35,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         rects = ss.process()  # f:453, q:1354
 
         # number of region proposals to show
-        numShowRects = 400
+        numShowRects = 500
         # increment to increase/decrease total number of reason proposals to be shown
         increment = 50
 
@@ -53,7 +50,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
             # draw rectangle for region proposal till numShowRects
             if i < numShowRects:
                 x, y, w, h = rect  # 这种格式
-                if w > 20 * h or h > 20 * w:
+                if w > 10 * h or h > 10 * w:
                     continue
                 bbox.append([x, y, w, h])
                 cnt += 1
@@ -62,41 +59,27 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
             else:
                 break
 
-        print('Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
         # # show output
         # cv2.imshow("Output", imOut)
 
-        # # record key press
-        # k = cv2.waitKey(0) & 0xFF
-
-        # # more
-        # if k == ord('m'):
-        #     numShowRects += increment  # increase total number of rectangles to show by increment
-        # # less
-        # elif k == ord('l') and numShowRects > increment:
-        #     numShowRects -= increment  # decrease total number of rectangles to show by increment
-        # # quit
-        # elif k == ord('q'):
-        #     break
-        # else:
-        #     break
         new = dict({'image': file, 'label': 0, 'bbox': bbox})
-        dataset.append(new)
+        if img_cnt % 10 == 0:
+            dataset_test.append(new)
+            print('0: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+        else:
+            dataset.append(new)
+            print('0: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
 
+img_cnt = 0
 for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/1/'):
     for file in files:
         # for macos
         if file == '.DS_Store':
             continue
-
+        img_cnt += 1
         img_path = root + file
-        print(img_path)
+        # print(img_path)
         im = cv2.imread(img_path)
-        # print(im.shape)
-        # resize image
-        # newHeight = 400
-        # newWidth = int(im.shape[1] * newHeight / im.shape[0])
-        # im = cv2.resize(im, (newWidth, newHeight))
 
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
@@ -104,7 +87,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         # set input image on which we will run segmentation
         ss.setBaseImage(im)
 
-        method = 'f'  # f=fast, q=quality
+        method = 'q'  # f=fast, q=quality
 
         if method == 'f':  # fast but low recall
             ss.switchToSelectiveSearchFast()
@@ -117,7 +100,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         rects = ss.process()  # f:453, q:1354
 
         # number of region proposals to show
-        numShowRects = 400
+        numShowRects = 500
         # increment to increase/decrease total number of reason proposals to be shown
         increment = 50
 
@@ -132,7 +115,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
             # draw rectangle for region proposal till numShowRects
             if i < numShowRects:
                 x, y, w, h = rect  # 这种格式
-                if w > 20 * h or h > 20 * w:
+                if w > 10 * h or h > 10 * w:
                     continue
                 bbox.append([x, y, w, h])
                 cnt += 1
@@ -141,26 +124,17 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
             else:
                 break
 
-        print('Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
         # # show output
         # cv2.imshow("Output", imOut)
 
-        # # record key press
-        # k = cv2.waitKey(0) & 0xFF
-
-        # # more
-        # if k == ord('m'):
-        #     numShowRects += increment  # increase total number of rectangles to show by increment
-        # # less
-        # elif k == ord('l') and numShowRects > increment:
-        #     numShowRects -= increment  # decrease total number of rectangles to show by increment
-        # # quit
-        # elif k == ord('q'):
-        #     break
-        # else:
-        #     break
         new = dict({'image': file, 'label': 1, 'bbox': bbox})
-        dataset.append(new)
+        if img_cnt % 10 == 0:
+            dataset_test.append(new)
+            print('1: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+        else:
+            dataset.append(new)
+            print('1: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
 
 
 pickle.dump(dataset,open('/home/syb/documents/Crack_Image_WSOD/data/data_yinlie.pkl','wb'))
+pickle.dump(dataset_test,open('/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie.pkl','wb'))

@@ -19,6 +19,7 @@ import cv2
 import argparse
 import sys
 import yaml
+import random
 import os
 import logging
 import traceback
@@ -32,6 +33,7 @@ logging.getLogger('roi_data.loader').setLevel(logging.INFO)
 # RuntimeError: received 0 items of ancdata. Issue: pytorch/pytorch#973
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
+
 
 def parse_args():
     """Parse input arguments"""
@@ -161,14 +163,18 @@ def main():
         'batch_size: %d, NUM_GPUS: %d' % (args.batch_size, cfg.NUM_GPUS)
     cfg.TRAIN.IMS_PER_BATCH = args.batch_size // cfg.NUM_GPUS
     effective_batch_size = args.iter_size * args.batch_size
-    print('effective_batch_size = batch_size * iter_size = %d * %d' % (args.batch_size, args.iter_size))
+    print('effective_batch_size = batch_size * iter_size = %d * %d' %
+          (args.batch_size, args.iter_size))
 
     print('Adaptive config changes:')
-    print('    effective_batch_size: %d --> %d' % (original_batch_size, effective_batch_size))
-    print('    NUM_GPUS:             %d --> %d' % (original_num_gpus, cfg.NUM_GPUS))
-    print('    IMS_PER_BATCH:        %d --> %d' % (original_ims_per_batch, cfg.TRAIN.IMS_PER_BATCH))
+    print('    effective_batch_size: %d --> %d' %
+          (original_batch_size, effective_batch_size))
+    print('    NUM_GPUS:             %d --> %d' %
+          (original_num_gpus, cfg.NUM_GPUS))
+    print('    IMS_PER_BATCH:        %d --> %d' %
+          (original_ims_per_batch, cfg.TRAIN.IMS_PER_BATCH))
 
-    ### Adjust learning based on batch size change linearly
+    # Adjust learning based on batch size change linearly
     # For iter_size > 1, gradients are `accumulated`, so lr is scaled based
     # on batch_size instead of effective_batch_size
     old_base_lr = cfg.SOLVER.BASE_LR
@@ -176,11 +182,12 @@ def main():
     print('Adjust BASE_LR linearly according to batch_size change:\n'
           '    BASE_LR: {} --> {}'.format(old_base_lr, cfg.SOLVER.BASE_LR))
 
-    ### Adjust solver steps
+    # Adjust solver steps
     step_scale = original_batch_size / effective_batch_size
     old_solver_steps = cfg.SOLVER.STEPS
     old_max_iter = cfg.SOLVER.MAX_ITER
-    cfg.SOLVER.STEPS = list(map(lambda x: int(x * step_scale + 0.5), cfg.SOLVER.STEPS))
+    cfg.SOLVER.STEPS = list(
+        map(lambda x: int(x * step_scale + 0.5), cfg.SOLVER.STEPS))
     cfg.SOLVER.MAX_ITER = int(cfg.SOLVER.MAX_ITER * step_scale + 0.5)
     print('Adjust SOLVER.STEPS and SOLVER.MAX_ITER linearly based on effective_batch_size change:\n'
           '    SOLVER.STEPS: {} --> {}\n'
@@ -191,7 +198,7 @@ def main():
         cfg.DATA_LOADER.NUM_THREADS = args.num_workers
     print('Number of data loading threads: %d' % cfg.DATA_LOADER.NUM_THREADS)
 
-    ### Overwrite some solver settings from command line arguments
+    # Overwrite some solver settings from command line arguments
     if args.optimizer is not None:
         cfg.SOLVER.TYPE = args.optimizer
     if args.lr is not None:
@@ -204,7 +211,7 @@ def main():
     timers = defaultdict(Timer)
     timers['image'].tic()
 
-    proposal_files = pickle.load(open(cfg.PROPOSAL_FILE_PATH,'rb'))
+    proposal_files = pickle.load(open(cfg.PROPOSAL_FILE_PATH, 'rb'))
     # image_path = '/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/cut/combine/'
     # proposal_files = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/data_yinlie.pkl','rb'))
     # for image_item in proposal_files:
@@ -219,20 +226,31 @@ def main():
     # num_epoch = 1     # number of epochs to train on
     batch_size = 1  # training batch size
     dataloader = torch.utils.data.DataLoader(
-        dataset, 
-        batch_size=batch_size, 
-        shuffle=True, 
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
         collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
 
     timers['image'].toc()
-    logger.info('Takes %.2f sec(s) to construct image data', timers['image'].average_time)
+    logger.info('Takes %.2f sec(s) to construct image data',
+                timers['image'].average_time)
 
     # for _ in range(num_epoch):
     #     # model.train()
     #     for batchsz, (image, proposal) in enumerate(dataloader):
     #         print("第 {} 个Batch size, 图片大小 {}, 边界框预测数量 {}".format(batchsz, image.shape, len(proposal['bbox'])))
     train_size = len(dataset)
+
+    random.seed(cfg.RNG_SEED)
+    np.random.seed(cfg.RNG_SEED)
+    torch.manual_seed(cfg.RNG_SEED)
+    os.environ['PYTHONHASHSEED'] = str(cfg.RNG_SEED)
+    if cfg.CUDA:
+        torch.cuda.manual_seed(cfg.RNG_SEED)
+        torch.cuda.manual_seed_all(cfg.RNG_SEED)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     ### Model ###
     pcl = Generalized_RCNN()
@@ -274,11 +292,12 @@ def main():
     elif cfg.SOLVER.TYPE == "Adam":
         optimizer = torch.optim.Adam(params)
 
-    ### Load checkpoint
+    # Load checkpoint
     if args.load_ckpt:
         load_name = args.load_ckpt
         logging.info("loading checkpoint %s", load_name)
-        checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(
+            load_name, map_location=lambda storage, loc: storage)
         net_utils.load_ckpt(pcl, checkpoint['model'])
         if args.resume:
             args.start_step = checkpoint['step'] + 1
@@ -297,14 +316,16 @@ def main():
         del checkpoint
         torch.cuda.empty_cache()
 
-    if args.load_detectron:  #TODO resume for detectron weights (load sgd momentum values)
+    # TODO resume for detectron weights (load sgd momentum values)
+    if args.load_detectron:
         logging.info("loading Detectron weights %s", args.load_detectron)
         load_detectron_weight(pcl, args.load_detectron)
 
-    lr = optimizer.param_groups[0]['lr']  # lr of non-bias parameters, for commmand line outputs.
+    # lr of non-bias parameters, for commmand line outputs.
+    lr = optimizer.param_groups[0]['lr']
 
     pcl = mynn.DataParallel(pcl, cpu_keywords=['im_info', 'roidb'],
-                                 minibatch=True)
+                            minibatch=True)
 
     ### Training Setups ###
     args.run_name = misc_utils.get_run_name() + '_step'
@@ -327,7 +348,8 @@ def main():
     ### Training Loop ###
     pcl.train()
 
-    CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS / (cfg.NUM_GPUS * args.iter_size))
+    CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS /
+                            (cfg.NUM_GPUS * args.iter_size))
 
     # Set index for decay steps
     decay_steps_ind = None
@@ -345,7 +367,12 @@ def main():
     try:
         logger.info('Training starts !')
         step = args.start_step
-        
+
+        tp = 0
+        fp = 0
+        tn = 0
+        fn = 0
+
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -355,15 +382,18 @@ def main():
                     warmup_factor = cfg.SOLVER.WARM_UP_FACTOR
                 elif method == 'linear':
                     alpha = step / cfg.SOLVER.WARM_UP_ITERS
-                    warmup_factor = cfg.SOLVER.WARM_UP_FACTOR * (1 - alpha) + alpha
+                    warmup_factor = cfg.SOLVER.WARM_UP_FACTOR * \
+                        (1 - alpha) + alpha
                 else:
-                    raise KeyError('Unknown SOLVER.WARM_UP_METHOD: {}'.format(method))
+                    raise KeyError(
+                        'Unknown SOLVER.WARM_UP_METHOD: {}'.format(method))
                 lr_new = cfg.SOLVER.BASE_LR * warmup_factor
                 net_utils.update_learning_rate(optimizer, lr, lr_new)
                 lr = optimizer.param_groups[0]['lr']
                 assert lr == lr_new
             elif step == cfg.SOLVER.WARM_UP_ITERS:
-                net_utils.update_learning_rate(optimizer, lr, cfg.SOLVER.BASE_LR)
+                net_utils.update_learning_rate(
+                    optimizer, lr, cfg.SOLVER.BASE_LR)
                 lr = optimizer.param_groups[0]['lr']
                 assert lr == cfg.SOLVER.BASE_LR
 
@@ -379,6 +409,7 @@ def main():
 
             training_stats.IterTic()
             optimizer.zero_grad()
+
             for inner_iter in range(args.iter_size):
                 try:
                     input_data = next(dataiterator)
@@ -387,23 +418,42 @@ def main():
                     input_data = next(dataiterator)
 
                 for key in input_data:
-                    if key != 'roidb': # roidb is a list of ndarrays with inconsistent length
+                    if key != 'roidb':  # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
 
                 net_outputs = pcl(**input_data)
                 scores = net_outputs['mil_score'].data.cpu().numpy()
                 labels = input_data['labels']
 
-                print(scores.sum(axis=0))
-                print(labels)
+                score = scores.sum(axis=0)
+                label = labels[0].numpy().squeeze(axis=0).squeeze(axis=0)
+
+                if label[1] == 1 and score[1] > score[0]:
+                    tp += 1
+                if label[0] == 1 and score[1] > score[0]:
+                    fp += 1
+                if label[0] == 1 and score[0] > score[1]:
+                    tn += 1
+                if label[1] == 1 and score[0] > score[1]:
+                    fn += 1
 
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
                 loss.backward(retain_graph=True)
+
             optimizer.step()
             training_stats.IterToc()
 
             training_stats.LogIterStats(step, lr)
+
+            if (step % 20 == 19 or step == cfg.SOLVER.MAX_ITER - 1) and (tp + fp) != 0:
+                print("TP: %3d, FP: %3d, TN: %3d, FN: %3d\nAccuracy : %3d/%3d, %.1f%%\nRecall   : %3d/%3d, %.1f%%\nPrecision: %3d/%3d, %.1f%%\n" %
+                      (tp, fp, tn, fn, tp + tn, tp + fp + tn + fn, (tp + tn) / (tp + fp + tn + fn) * 100,
+                       tp, tp + fn, tp / (tp + fn) * 100, tp, tp + fp, tp / (tp + fp) * 100))
+                tp = 0
+                fp = 0
+                tn = 0
+                fn = 0
 
             if (step+1) % CHECKPOINT_PERIOD == 0:
                 save_ckpt(output_dir, args, step, train_size, pcl, optimizer)
@@ -423,7 +473,6 @@ def main():
     finally:
         if args.use_tfboard and not args.no_save:
             tblogger.close()
-
 
 
 if __name__ == '__main__':
