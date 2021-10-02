@@ -1,5 +1,5 @@
 IMAGEPATH:
-  '/home/syb/documents/Crack_Image_WSOD/data/cut/combine/'
+  '/home/syb/documents/Crack_Image_WSOD/data/resize/combine/'
 PROPOSAL_FILE_PATH:
   '/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_new.pkl'
 TEST_PROPOSAL_FILE_PATH:
@@ -18,7 +18,7 @@ SOLVER:
   GAMMA: 0.1
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
   MAX_ITER: 5500
-  STEPS: [0, 50000]
+  STEPS: [0, 3500]
 FAST_RCNN:
   ROI_BOX_HEAD: vgg16.roi_2mlp_head
   ROI_XFORM_METHOD: RoIPoolF

@@ -7,7 +7,7 @@ dataset_test = list()
 # dataset = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/data_yinlie.pkl','rb'))
 
 img_cnt = 0
-for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/0/'):
+for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resize/0/'):
     for file in files:
         # for macos
         if file == '.DS_Store':
@@ -15,37 +15,24 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         img_cnt += 1
         img_path = root + file
         im = cv2.imread(img_path)
-        print(img_path)
+        # im = cv2.resize(im, (200, 200))
+        # cv2.imwrite('/home/syb/documents/Crack_Image_WSOD/data/resize/0/' + file, im)
+        # print(img_path)
         
         bbox = list()
-        imOut = im.copy()
-        if im.shape[0] > 400:
-            for x in range(0, 470, 40):
-                for y in range(0, 470, 40):
-                    w = 40
-                    h = 40
-                    if x + 40 > im.shape[0] and y + 40 > im.shape[1]:
-                        w = im.shape[0] - x
-                        h = im.shape[1] - y
-                    elif x + 40 > im.shape[0]:
-                        w = im.shape[0] - x
-                    elif y + 40 > im.shape[1]:
-                        h = im.shape[1] - y
-                    bbox.append([x, y, w, h])
-
-        else:
-            for x in range(0, 290, 30):
-                for y in range(0, 290, 30):
-                    w = 30
-                    h = 30
-                    if x + 30 > im.shape[0] and y + 30 > im.shape[1]:
-                        w = im.shape[0] - x
-                        h = im.shape[1] - y
-                    elif x + 30 > im.shape[0]:
-                        w = im.shape[0] - x
-                    elif y + 30 > im.shape[1]:
-                        h = im.shape[1] - y
-                    bbox.append([x, y, w, h])
+        bbox.append([0, 0, 200, 200])
+        # for x in range(0, 190, 20):
+        #     for y in range(0, 190, 20):
+        #         w = 20
+        #         h = 20
+        #         if x + 20 > im.shape[0] and y + 20 > im.shape[1]:
+        #             w = im.shape[0] - x
+        #             h = im.shape[1] - y
+        #         elif x + 20 > im.shape[0]:
+        #             w = im.shape[0] - x
+        #         elif y + 20 > im.shape[1]:
+        #             h = im.shape[1] - y
+        #         bbox.append([x, y, w, h])
 
         '''
         # create Selective Search Segmentation Object using default parameters
@@ -104,7 +91,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
             # print('0: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
 
 img_cnt = 0
-for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/1/'):
+for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resize/1/'):
     for file in files:
         # for macos
         if file == '.DS_Store':
@@ -113,31 +100,25 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         img_path = root + file
         # print(img_path)
         im = cv2.imread(img_path)
-        print(img_path)
+        # im = cv2.resize(im, (200, 200))
+        # cv2.imwrite('/home/syb/documents/Crack_Image_WSOD/data/resize/1/' + file, im)
+        # print(img_path)
 
         bbox = list()
-        if im.shape[0] > 400:
-            for x in range(0, 470, 40):
-                for y in range(0, 470, 40):
-                    if x + 40 > im.shape[0] and y + 40 > im.shape[1]:
-                        bbox.append([x, y, im.shape[0] - x, im.shape[1] - y])
-                    elif x + 40 > im.shape[0]:
-                        bbox.append([x, y, im.shape[0] - x, 40])
-                    elif y + 40 > im.shape[1]:
-                        bbox.append([x, y, 40, im.shape[1] - y])
-                    else:
-                        bbox.append([x, y, 40, 40])
-        else:
-            for x in range(0, 290, 30):
-                for y in range(0, 290, 30):
-                    if x + 30 > im.shape[0] and y + 30 > im.shape[1]:
-                        bbox.append([x, y, im.shape[0] - x, im.shape[1] - y])
-                    elif x + 30 > im.shape[0]:
-                        bbox.append([x, y, im.shape[0] - x, 30])
-                    elif y + 30 > im.shape[1]:
-                        bbox.append([x, y, 30, im.shape[1] - y])
-                    else:
-                        bbox.append([x, y, 30, 30])
+        bbox.append([0, 0, 200, 200])
+        # for x in range(0, 190, 20):
+        #     for y in range(0, 190, 20):
+        #         w = 20
+        #         h = 20
+        #         if x + 20 > im.shape[0] and y + 20 > im.shape[1]:
+        #             w = im.shape[0] - x
+        #             h = im.shape[1] - y
+        #         elif x + 20 > im.shape[0]:
+        #             w = im.shape[0] - x
+        #         elif y + 20 > im.shape[1]:
+        #             h = im.shape[1] - y
+        #         bbox.append([x, y, w, h])
+
         '''
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
