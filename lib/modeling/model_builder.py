@@ -110,9 +110,9 @@ class Generalized_RCNN(nn.Module):
 
     def _forward(self, data, rois, labels):
         im_data = data
-        if self.training:
-            rois = rois.squeeze(dim=0).type(im_data.dtype)
-            labels = labels.squeeze(dim=0).type(im_data.dtype)
+        # if self.training:
+        rois = rois.squeeze(dim=0).type(im_data.dtype)
+        labels = labels.squeeze(dim=0).type(im_data.dtype)
 
         return_dict = {}  # A dict to collect return variables
 

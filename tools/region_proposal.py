@@ -15,7 +15,39 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         img_cnt += 1
         img_path = root + file
         im = cv2.imread(img_path)
+        print(img_path)
+        
+        bbox = list()
+        imOut = im.copy()
+        if im.shape[0] > 400:
+            for x in range(0, 470, 40):
+                for y in range(0, 470, 40):
+                    w = 40
+                    h = 40
+                    if x + 40 > im.shape[0] and y + 40 > im.shape[1]:
+                        w = im.shape[0] - x
+                        h = im.shape[1] - y
+                    elif x + 40 > im.shape[0]:
+                        w = im.shape[0] - x
+                    elif y + 40 > im.shape[1]:
+                        h = im.shape[1] - y
+                    bbox.append([x, y, w, h])
 
+        else:
+            for x in range(0, 290, 30):
+                for y in range(0, 290, 30):
+                    w = 30
+                    h = 30
+                    if x + 30 > im.shape[0] and y + 30 > im.shape[1]:
+                        w = im.shape[0] - x
+                        h = im.shape[1] - y
+                    elif x + 30 > im.shape[0]:
+                        w = im.shape[0] - x
+                    elif y + 30 > im.shape[1]:
+                        h = im.shape[1] - y
+                    bbox.append([x, y, w, h])
+
+        '''
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
 
@@ -58,17 +90,18 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
                 #             (0, 0, 255), 1, cv2.LINE_AA)
             else:
                 break
-
+        print(bbox)
+        break
         # # show output
         # cv2.imshow("Output", imOut)
-
+        '''
         new = dict({'image': file, 'label': 0, 'bbox': bbox})
         if img_cnt % 10 == 0:
             dataset_test.append(new)
-            print('0: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            # print('0: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
         else:
             dataset.append(new)
-            print('0: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            # print('0: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
 
 img_cnt = 0
 for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/1/'):
@@ -80,7 +113,32 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
         img_path = root + file
         # print(img_path)
         im = cv2.imread(img_path)
+        print(img_path)
 
+        bbox = list()
+        if im.shape[0] > 400:
+            for x in range(0, 470, 40):
+                for y in range(0, 470, 40):
+                    if x + 40 > im.shape[0] and y + 40 > im.shape[1]:
+                        bbox.append([x, y, im.shape[0] - x, im.shape[1] - y])
+                    elif x + 40 > im.shape[0]:
+                        bbox.append([x, y, im.shape[0] - x, 40])
+                    elif y + 40 > im.shape[1]:
+                        bbox.append([x, y, 40, im.shape[1] - y])
+                    else:
+                        bbox.append([x, y, 40, 40])
+        else:
+            for x in range(0, 290, 30):
+                for y in range(0, 290, 30):
+                    if x + 30 > im.shape[0] and y + 30 > im.shape[1]:
+                        bbox.append([x, y, im.shape[0] - x, im.shape[1] - y])
+                    elif x + 30 > im.shape[0]:
+                        bbox.append([x, y, im.shape[0] - x, 30])
+                    elif y + 30 > im.shape[1]:
+                        bbox.append([x, y, 30, im.shape[1] - y])
+                    else:
+                        bbox.append([x, y, 30, 30])
+        '''
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
 
@@ -126,15 +184,15 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/
 
         # # show output
         # cv2.imshow("Output", imOut)
-
+        '''
         new = dict({'image': file, 'label': 1, 'bbox': bbox})
         if img_cnt % 10 == 0:
             dataset_test.append(new)
-            print('1: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            # print('1: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
         else:
             dataset.append(new)
-            print('1: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            # print('1: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
 
 
-pickle.dump(dataset,open('/home/syb/documents/Crack_Image_WSOD/data/data_yinlie.pkl','wb'))
-pickle.dump(dataset_test,open('/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie.pkl','wb'))
+pickle.dump(dataset,open('/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_new.pkl','wb'))
+pickle.dump(dataset_test,open('/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie_new.pkl','wb'))

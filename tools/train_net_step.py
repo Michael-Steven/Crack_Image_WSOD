@@ -229,6 +229,8 @@ def main():
         dataset,
         batch_size=batch_size,
         shuffle=True,
+        drop_last=True,
+        num_workers=cfg.DATA_LOADER.NUM_THREADS,
         collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
 

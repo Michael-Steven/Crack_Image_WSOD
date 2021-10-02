@@ -168,7 +168,14 @@ if __name__ == '__main__':
     model = initialize_model_from_cfg(args, gpu_id=0)
 
     for _ in range(test_size):
-        input_data = next(dataiterator)
+        try:
+            input_data = next(dataiterator)
+        except StopIteration:
+            dataiterator = iter(dataloader)
+            input_data = next(dataiterator)
+
+        # print(input_data)
+
         net_outputs = model(**input_data)
         scores = net_outputs['mil_score'].data.cpu().numpy()
         labels = input_data['labels']

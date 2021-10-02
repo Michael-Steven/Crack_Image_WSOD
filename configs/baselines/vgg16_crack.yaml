@@ -1,9 +1,9 @@
 IMAGEPATH:
   '/home/syb/documents/Crack_Image_WSOD/data/cut/combine/'
 PROPOSAL_FILE_PATH:
-  '/home/syb/documents/Crack_Image_WSOD/data/data_yinlie.pkl'
+  '/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_new.pkl'
 TEST_PROPOSAL_FILE_PATH:
-  '/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie.pkl'
+  '/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie_new.pkl'
 MODEL:
   TYPE: generalized_rcnn
   CONV_BODY: vgg16.dilated_conv5_body
