@@ -75,11 +75,12 @@ class Generalized_RCNN(nn.Module):
 
         # Backbone for feature extraction
         self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
+        self.gap = nn.AdaptiveAvgPool2d(1)
 
-        self.Box_Head = get_func(cfg.FAST_RCNN.ROI_BOX_HEAD)(
-            self.Conv_Body.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale)
+        # self.Box_Head = get_func(cfg.FAST_RCNN.ROI_BOX_HEAD)(
+        #     self.Conv_Body.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale)
         self.Box_MIL_Outs = pcl_heads.mil_outputs(
-            self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES)
+            self.Conv_Body.dim_out, cfg.MODEL.NUM_CLASSES)
         # self.Box_Refine_Outs = pcl_heads.refine_outputs(
         #     self.Box_Head.dim_out, cfg.MODEL.NUM_CLASSES + 1)
 
@@ -94,8 +95,20 @@ class Generalized_RCNN(nn.Module):
 
     def _init_modules(self):
         if cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS:
-            if cfg.MODEL.CONV_BODY.split('.')[0] == 'vgg16':
-                vgg_utils.load_pretrained_imagenet_weights(self)
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                    if m.bias is not None:
+                        nn.init.constant_(m.bias, 0)
+                # elif isinstance(m, nn.BatchNorm2d):
+                #     nn.init.constant_(m.weight, 1)
+                #     nn.init.constant_(m.bias, 0)
+                # elif isinstance(m, nn.Linear):
+                #     nn.init.normal_(m.weight, 0, 0.01)
+                #     nn.init.constant_(m.bias, 0)
+
+            # if cfg.MODEL.CONV_BODY.split('.')[0] == 'vgg16':
+            #     vgg_utils.load_pretrained_imagenet_weights(self)
 
         if cfg.TRAIN.FREEZE_CONV_BODY:
             for p in self.Conv_Body.parameters():
@@ -121,7 +134,8 @@ class Generalized_RCNN(nn.Module):
         if not self.training:
             return_dict['blob_conv'] = blob_conv
 
-        box_feat = self.Box_Head(blob_conv, rois)
+        # box_feat = self.Box_Head(blob_conv, rois)
+        box_feat = self.gap(blob_conv)
         mil_score = self.Box_MIL_Outs(box_feat)
         # refine_score = self.Box_Refine_Outs(box_feat)
         # if cfg.MODEL.WITH_FRCNN:

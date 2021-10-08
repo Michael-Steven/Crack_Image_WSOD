@@ -1,6 +1,7 @@
 import _init_paths
 from datasets.crack_dataset import CrackDataSet, collate_minibatch
 from modeling.model_builder import Generalized_RCNN
+from modeling.basenet import BaseNet
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
 from collections import defaultdict
 from utils.logging import setup_logging
@@ -230,8 +231,8 @@ def main():
         batch_size=batch_size,
         shuffle=True,
         drop_last=True,
-        num_workers=cfg.DATA_LOADER.NUM_THREADS,
-        collate_fn=collate_minibatch)
+        num_workers=cfg.DATA_LOADER.NUM_THREADS)
+        # collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
 
     timers['image'].toc()
@@ -255,7 +256,8 @@ def main():
         torch.backends.cudnn.benchmark = False
 
     ### Model ###
-    pcl = Generalized_RCNN()
+    # pcl = Generalized_RCNN()
+    pcl = BaseNet(cfg.MODEL.NUM_CLASSES)
 
     if cfg.CUDA:
         pcl.cuda()
@@ -326,8 +328,8 @@ def main():
     # lr of non-bias parameters, for commmand line outputs.
     lr = optimizer.param_groups[0]['lr']
 
-    pcl = mynn.DataParallel(pcl, cpu_keywords=['im_info', 'roidb'],
-                            minibatch=True)
+    # pcl = mynn.DataParallel(pcl, cpu_keywords=['im_info', 'roidb'],
+    #                         minibatch=True)
 
     ### Training Setups ###
     args.run_name = misc_utils.get_run_name() + '_step'
@@ -419,43 +421,56 @@ def main():
                     dataiterator = iter(dataloader)
                     input_data = next(dataiterator)
 
-                for key in input_data:
-                    if key != 'roidb':  # roidb is a list of ndarrays with inconsistent length
-                        input_data[key] = list(map(Variable, input_data[key]))
+                # for key in input_data:
+                #     if key != 'roidb':  # roidb is a list of ndarrays with inconsistent length
+                #         input_data[key] = list(map(Variable, input_data[key]))
 
-                net_outputs = pcl(**input_data)
-                scores = net_outputs['mil_score'].data.cpu().numpy()
-                labels = input_data['labels']
+                # print(input_data)
+                # exit(0)
+                loss_basenet = pcl(input_data['data'].to('cuda'), input_data['labels'].to('cuda'))
+                # print(loss_basenet.unsqueeze(0))
 
-                score = scores.sum(axis=0)
-                label = labels[0].numpy().squeeze(axis=0).squeeze(axis=0)
+                loss_basenet.backward()
+                # net_outputs = pcl(**input_data)
+                # scores = net_outputs['mil_score'].data.cpu().numpy()
+                # labels = input_data['labels']
 
-                if label[1] == 1 and score[1] > score[0]:
-                    tp += 1
-                if label[0] == 1 and score[1] > score[0]:
-                    fp += 1
-                if label[0] == 1 and score[0] > score[1]:
-                    tn += 1
-                if label[1] == 1 and score[0] > score[1]:
-                    fn += 1
+                # score = scores.sum(axis=0)
+                # label = labels[0].numpy().squeeze(axis=0).squeeze(axis=0)
+                # # print(score)
+                # # print(label)
 
+                # # if label[1] == 1 and score[1] > score[0]:
+                # #     tp += 1
+                # # if label[0] == 1 and score[1] > score[0]:
+                # #     fp += 1
+                # # if label[0] == 1 and score[0] > score[1]:
+                # #     tn += 1
+                # # if label[1] == 1 and score[0] > score[1]:
+                # #     fn += 1
+                net_outputs = {}
+                net_outputs['losses'] = {}
+                net_outputs['losses']['loss_im_cls'] = loss_basenet.unsqueeze(0)
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
-                loss = net_outputs['total_loss']
-                loss.backward(retain_graph=True)
+                # loss = net_outputs['total_loss']
+                # # if loss.item() > 10:
+                # #     import pdb
+                # #     pdb.set_trace()
+                # loss.backward(retain_graph=True)
 
             optimizer.step()
             training_stats.IterToc()
 
             training_stats.LogIterStats(step, lr)
 
-            if (step % 20 == 19 or step == cfg.SOLVER.MAX_ITER - 1) and (tp + fp) != 0:
-                print("TP: %3d, FP: %3d, TN: %3d, FN: %3d\nAccuracy : %3d/%3d, %.1f%%\nRecall   : %3d/%3d, %.1f%%\nPrecision: %3d/%3d, %.1f%%\n" %
-                      (tp, fp, tn, fn, tp + tn, tp + fp + tn + fn, (tp + tn) / (tp + fp + tn + fn) * 100,
-                       tp, tp + fn, tp / (tp + fn) * 100, tp, tp + fp, tp / (tp + fp) * 100))
-                tp = 0
-                fp = 0
-                tn = 0
-                fn = 0
+            # if (step % 20 == 19 or step == cfg.SOLVER.MAX_ITER - 1):
+            #     print("TP: %3d, FP: %3d, TN: %3d, FN: %3d\nAccuracy : %3d/%3d, %.1f%%\nRecall   : %3d/%3d, %.1f%%\nPrecision: %3d/%3d, %.1f%%\n" %
+            #           (tp, fp, tn, fn, tp + tn, tp + fp + tn + fn, (tp + tn) / (tp + fp + tn + fn) * 100,
+            #            tp, tp + fn, tp / (tp + fn) * 100, tp, tp + fp, tp / (tp + fp) * 100))
+            #     tp = 0
+            #     fp = 0
+            #     tn = 0
+            #     fn = 0
 
             if (step+1) % CHECKPOINT_PERIOD == 0:
                 save_ckpt(output_dir, args, step, train_size, pcl, optimizer)

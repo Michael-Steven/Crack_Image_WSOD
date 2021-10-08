@@ -63,9 +63,10 @@ class dilated_conv5_body(nn.Module):
         self._init_modules()
 
     def _init_modules(self):
-        assert cfg.VGG.FREEZE_AT in [0, 2, 3, 4, 5]
-        for i in range(1, cfg.VGG.FREEZE_AT + 1):
-            freeze_params(getattr(self, 'conv%d' % i))
+        # assert cfg.VGG.FREEZE_AT in [0, 2, 3, 4, 5]
+        # for i in range(1, cfg.VGG.FREEZE_AT + 1):
+        #     freeze_params(getattr(self, 'conv%d' % i))
+        pass
 
     def detectron_weight_mapping(self):
         mapping_to_detectron = {
@@ -101,12 +102,12 @@ class dilated_conv5_body(nn.Module):
 
         return mapping_to_detectron, orphan_in_detectron
 
-    def train(self, mode=True):
-        # Override
-        self.training = mode
+    # def train(self, mode=True):
+    #     # Override
+    #     self.training = mode
 
-        for i in range(cfg.VGG.FREEZE_AT + 1, 6):
-            getattr(self, 'conv%d' % i).train(mode)
+        # for i in range(cfg.VGG.FREEZE_AT + 1, 6):
+        #     getattr(self, 'conv%d' % i).train(mode)
 
     def forward(self, x):
         for i in range(1, 6):

@@ -7,6 +7,7 @@ dataset_test = list()
 # dataset = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/data_yinlie.pkl','rb'))
 
 img_cnt = 0
+cnt=0
 for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resize/0/'):
     for file in files:
         # for macos
@@ -82,6 +83,9 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
         # # show output
         # cv2.imshow("Output", imOut)
         '''
+        cnt+=1
+        if cnt > 462:
+            break
         new = dict({'image': file, 'label': 0, 'bbox': bbox})
         if img_cnt % 10 == 0:
             dataset_test.append(new)

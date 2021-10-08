@@ -9,7 +9,7 @@ def get_minibatch_blob_names(is_training=True):
     """Return blob names in the order in which they are read by the data loader.
     """
     # data blob: holds a batch of N images, each with 3 channels
-    blob_names = ['data', 'rois', 'labels']
+    blob_names = ['data', 'labels']
     return blob_names
 
 
@@ -58,7 +58,10 @@ def _get_image_blob(roidb):
     image_path = cfg.IMAGEPATH
     for i in range(num_images):
         im = cv2.imread(image_path + roidb[i]['image']).astype(np.float32, copy=False)
-        im -= cfg.PIXEL_MEANS
+        # im -= cfg.PIXEL_MEANS
+        im /= 255.0
+        im -= np.array([[[0.5068035, 0.5068035, 0.5068035]]])
+        im /= np.array([[[0.16240637, 0.16240637, 0.16240637]]])
         processed_ims.append(im)
     blob = im_list_to_blob(processed_ims)
     return blob
@@ -75,13 +78,13 @@ def get_minibatch(roidb, num_classes):
     blobs['data'] = im_blob
 
     rois_blob = np.zeros((0, 5), dtype=np.float32)
-    labels_blob = np.zeros((0, num_classes), dtype=np.float32)
+    labels_blob = np.zeros((0, 1), dtype=np.float32)
 
     num_images = len(roidb)
     for im_i in range(num_images):
         rois = roidb[im_i]['bbox']
-        labels = np.zeros((1, num_classes), dtype=np.float32)
-        labels[0][roidb[im_i]['label']] = 1
+        labels = np.zeros((1, 1), dtype=np.float32)
+        labels[0][0] = roidb[im_i]['label']
         for roi in rois:
             # bboxs: 0, x1, y1, x2, y2
             rois_blob_this_image = np.array(
@@ -89,7 +92,7 @@ def get_minibatch(roidb, num_classes):
             rois_blob = np.vstack((rois_blob, rois_blob_this_image))
         labels_blob = np.vstack((labels_blob, labels))
 
-    blobs['rois'] = rois_blob
+    # blobs['rois'] = rois_blob
     blobs['labels'] = labels_blob
 
     return blobs
@@ -110,6 +113,7 @@ class CrackDataSet(data.Dataset):
         # print(image.shape)
         # print(len(proposal['bbox']))
         blobs['data'] = blobs['data'].squeeze(axis=0)
+        blobs['labels'] = blobs['labels'].squeeze(axis=0).squeeze(axis=0)
 
         return blobs
 
