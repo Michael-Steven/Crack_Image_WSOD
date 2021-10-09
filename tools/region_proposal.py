@@ -16,26 +16,13 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
         img_cnt += 1
         img_path = root + file
         im = cv2.imread(img_path)
-        # im = cv2.resize(im, (200, 200))
+        im = cv2.resize(im, (478, 478))
+        ratio = 400 / 478
         # cv2.imwrite('/home/syb/documents/Crack_Image_WSOD/data/resize/0/' + file, im)
         # print(img_path)
         
         bbox = list()
-        bbox.append([0, 0, 200, 200])
-        # for x in range(0, 190, 20):
-        #     for y in range(0, 190, 20):
-        #         w = 20
-        #         h = 20
-        #         if x + 20 > im.shape[0] and y + 20 > im.shape[1]:
-        #             w = im.shape[0] - x
-        #             h = im.shape[1] - y
-        #         elif x + 20 > im.shape[0]:
-        #             w = im.shape[0] - x
-        #         elif y + 20 > im.shape[1]:
-        #             h = im.shape[1] - y
-        #         bbox.append([x, y, w, h])
 
-        '''
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
 
@@ -72,18 +59,16 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
                 x, y, w, h = rect  # 这种格式
                 if w > 10 * h or h > 10 * w:
                     continue
-                bbox.append([x, y, w, h])
+                bbox.append([x * ratio, y * ratio, w * ratio, h * ratio])
                 cnt += 1
                 # cv2.rectangle(imOut, (x, y), (x + w, y + h),
                 #             (0, 0, 255), 1, cv2.LINE_AA)
             else:
                 break
-        print(bbox)
-        break
-        # # show output
+
+        # show output
         # cv2.imshow("Output", imOut)
-        '''
-        cnt+=1
+        cnt += 1
         if cnt > 462:
             break
         new = dict({'image': file, 'label': 0, 'bbox': bbox})
@@ -104,26 +89,13 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
         img_path = root + file
         # print(img_path)
         im = cv2.imread(img_path)
-        # im = cv2.resize(im, (200, 200))
+        im = cv2.resize(im, (478, 478))
+        ratio = 400 / 478
         # cv2.imwrite('/home/syb/documents/Crack_Image_WSOD/data/resize/1/' + file, im)
         # print(img_path)
 
         bbox = list()
-        bbox.append([0, 0, 200, 200])
-        # for x in range(0, 190, 20):
-        #     for y in range(0, 190, 20):
-        #         w = 20
-        #         h = 20
-        #         if x + 20 > im.shape[0] and y + 20 > im.shape[1]:
-        #             w = im.shape[0] - x
-        #             h = im.shape[1] - y
-        #         elif x + 20 > im.shape[0]:
-        #             w = im.shape[0] - x
-        #         elif y + 20 > im.shape[1]:
-        #             h = im.shape[1] - y
-        #         bbox.append([x, y, w, h])
 
-        '''
         # create Selective Search Segmentation Object using default parameters
         ss = cv2.ximgproc.segmentation.createSelectiveSearchSegmentation()
 
@@ -160,7 +132,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
                 x, y, w, h = rect  # 这种格式
                 if w > 10 * h or h > 10 * w:
                     continue
-                bbox.append([x, y, w, h])
+                bbox.append([x * ratio, y * ratio, w * ratio, h * ratio])
                 cnt += 1
                 # cv2.rectangle(imOut, (x, y), (x + w, y + h),
                 #             (0, 0, 255), 1, cv2.LINE_AA)
@@ -169,7 +141,6 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
 
         # # show output
         # cv2.imshow("Output", imOut)
-        '''
         new = dict({'image': file, 'label': 1, 'bbox': bbox})
         if img_cnt % 10 == 0:
             dataset_test.append(new)

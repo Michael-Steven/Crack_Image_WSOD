@@ -166,7 +166,7 @@ if __name__ == '__main__':
     fp = 0
     tn = 0
     fn = 0
-    model = BaseNet(cfg.MODEL.NUM_CLASSES)
+    model = BaseNet()
     logger.info("loading checkpoint %s", args.load_ckpt)
     checkpoint = torch.load(args.load_ckpt)
     model.load_state_dict(checkpoint['model'])

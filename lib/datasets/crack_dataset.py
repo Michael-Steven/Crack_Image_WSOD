@@ -86,13 +86,13 @@ def get_minibatch(roidb, num_classes):
         labels = np.zeros((1, 1), dtype=np.float32)
         labels[0][0] = roidb[im_i]['label']
         for roi in rois:
-            # bboxs: 0, x1, y1, x2, y2
+            # bboxs: bach_idx, x1, y1, x2, y2
             rois_blob_this_image = np.array(
-                [0, roi[0], roi[1], roi[0] + roi[2], roi[1] + roi[3]])
+                [im_i, roi[0], roi[1], roi[0] + roi[2], roi[1] + roi[3]])
             rois_blob = np.vstack((rois_blob, rois_blob_this_image))
         labels_blob = np.vstack((labels_blob, labels))
 
-    # blobs['rois'] = rois_blob
+    blobs['rois'] = rois_blob
     blobs['labels'] = labels_blob
 
     return blobs
@@ -113,6 +113,7 @@ class CrackDataSet(data.Dataset):
         # print(image.shape)
         # print(len(proposal['bbox']))
         blobs['data'] = blobs['data'].squeeze(axis=0)
+        blobs['rois'] = blobs['rois'].squeeze(axis=0).squeeze(axis=0)
         blobs['labels'] = blobs['labels'].squeeze(axis=0).squeeze(axis=0)
 
         return blobs

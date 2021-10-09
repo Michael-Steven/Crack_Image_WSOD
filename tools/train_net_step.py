@@ -225,10 +225,10 @@ def main():
         cfg.MODEL.NUM_CLASSES,
         training=True)
     # num_epoch = 1     # number of epochs to train on
-    batch_size = 1  # training batch size
+    # batch_size = 16  # training batch size
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=batch_size,
+        batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
         num_workers=cfg.DATA_LOADER.NUM_THREADS)
@@ -257,7 +257,7 @@ def main():
 
     ### Model ###
     # pcl = Generalized_RCNN()
-    pcl = BaseNet(cfg.MODEL.NUM_CLASSES)
+    pcl = BaseNet()
 
     if cfg.CUDA:
         pcl.cuda()
