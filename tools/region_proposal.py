@@ -7,8 +7,7 @@ dataset_test = list()
 # dataset = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/data_yinlie.pkl','rb'))
 
 img_cnt = 0
-cnt=0
-for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resize/0/'):
+for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/0/'):
     for file in files:
         # for macos
         if file == '.DS_Store':
@@ -29,7 +28,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
         # set input image on which we will run segmentation
         ss.setBaseImage(im)
 
-        method = 'q'  # f=fast, q=quality
+        method = 'f'  # f=fast, q=quality
 
         if method == 'f':  # fast but low recall
             ss.switchToSelectiveSearchFast()
@@ -68,19 +67,18 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
 
         # show output
         # cv2.imshow("Output", imOut)
-        cnt += 1
-        if cnt > 462:
+        if img_cnt > 462:
             break
         new = dict({'image': file, 'label': 0, 'bbox': bbox})
         if img_cnt % 10 == 0:
             dataset_test.append(new)
-            # print('0: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            print('0-{}: test    |Total Number of Region Proposals: {}, saved: {}'.format(img_cnt, len(rects), cnt))
         else:
             dataset.append(new)
-            # print('0: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            print('0-{}: train   |Total Number of Region Proposals: {}, saved: {}'.format(img_cnt, len(rects), cnt))
 
 img_cnt = 0
-for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resize/1/'):
+for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/cut/1/'):
     for file in files:
         # for macos
         if file == '.DS_Store':
@@ -102,7 +100,7 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
         # set input image on which we will run segmentation
         ss.setBaseImage(im)
 
-        method = 'q'  # f=fast, q=quality
+        method = 'f'  # f=fast, q=quality
 
         if method == 'f':  # fast but low recall
             ss.switchToSelectiveSearchFast()
@@ -144,10 +142,10 @@ for root, dirs, files in os.walk('/home/syb/documents/Crack_Image_WSOD/data/resi
         new = dict({'image': file, 'label': 1, 'bbox': bbox})
         if img_cnt % 10 == 0:
             dataset_test.append(new)
-            # print('1: test    |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            print('1-{}: test    |Total Number of Region Proposals: {}, saved: {}'.format(img_cnt, len(rects), cnt))
         else:
             dataset.append(new)
-            # print('1: train   |Total Number of Region Proposals: {}, saved: {}'.format(len(rects), cnt))
+            print('1-{}: train   |Total Number of Region Proposals: {}, saved: {}'.format(img_cnt, len(rects), cnt))
 
 
 pickle.dump(dataset,open('/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_new.pkl','wb'))

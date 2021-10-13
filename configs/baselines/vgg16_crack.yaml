@@ -1,5 +1,5 @@
 IMAGEPATH:
-  '/home/syb/documents/Crack_Image_WSOD/data/resize/combine/'
+  '/home/syb/documents/Crack_Image_WSOD/data/cut/combine/'
 PROPOSAL_FILE_PATH:
   '/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_new.pkl'
 TEST_PROPOSAL_FILE_PATH:
@@ -14,11 +14,11 @@ VGG:
 SOLVER:
   WEIGHT_DECAY: 0.0005
   LR_POLICY: steps_with_decay
-  BASE_LR: 0.01
-  GAMMA: 0.1
+  BASE_LR: 0.0025
+  GAMMA: 0.2
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 1400
-  STEPS: [0, 1000]
+  MAX_ITER: 10000
+  STEPS: [0, 7000]
 FAST_RCNN:
   ROI_BOX_HEAD: vgg16.roi_2mlp_head
   ROI_XFORM_METHOD: RoIPoolF

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import modeling.resnet as resnet
 import torch.nn.functional as F
-from torchvision.ops import RoIPool
+from mmcv.ops import RoIPool
 from core.config import cfg
 
 class BaseNet(nn.Module):
@@ -12,30 +12,30 @@ class BaseNet(nn.Module):
         self.num_class = cfg.MODEL.NUM_CLASSES
         self.base_network = resnet.ResNet()
 
-        # self.in_planes = 2048
-        # self.gap = nn.AdaptiveAvgPool2d(1)
-        # self.classifier = nn.Linear(self.in_planes, num_class)
-
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.classifier = nn.Linear(self.base_network.dim_out, self.num_class)
 
         hidden_dim = 2048
         roi_size = 7
+        self.roi_pooling = RoIPool(output_size=roi_size, spatial_scale=1. / 8.)
         self.fc1 = nn.Linear(self.base_network.dim_out * roi_size**2, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.mil_score0 = nn.Linear(self.base_network.dim_out, 2)
-        self.mil_score1 = nn.Linear(self.base_network.dim_out, 2)
+        self.mil_score0 = nn.Linear(hidden_dim, 2)
+        self.mil_score1 = nn.Linear(hidden_dim, 2)
         self.criterion = torch.nn.CrossEntropyLoss()
 
         self._init_weights()
 
 
-        # if model_path == '':
-        #     model_path = '/home/youmeiyue/.cache/torch/hub/checkpoints/resnet50-19c8e357.pth'
-        # if pretrain_choice == 'ImageNet':
-        #     self.base_network.load_param(model_path)
-        #     print('Loading pretrained ImageNet model')
-        # elif pretrain_choice == 'BaselineTest':
-        #     self.load_param(model_path)
-        #     print('Loading pretrained BaselineTest model')
+    def mil_losses(self, cls_score, labels):
+        loss = torch.tensor([]).to('cuda')
+        for i in range(len(cls_score)):
+            cls_score_tmp = cls_score[i].clamp(1e-6, 1 - 1e-6)
+            labels_tmp = labels[i].clamp(0, 1)
+            batch_item_loss = -labels_tmp * torch.log(cls_score_tmp) - (1 - labels_tmp) * torch.log(1 - cls_score_tmp)
+            loss = torch.cat((loss, batch_item_loss), 0)
+        # loss = self.criterion(cls_score, labels.to(torch.long))
+        return loss.mean()
 
 
     def _init_weights(self):
@@ -50,9 +50,8 @@ class BaseNet(nn.Module):
         x = self.base_network(data)
 
         # box_feat
-        x = RoIPool(outputsize=7, spatial_scale=1. / 8.)(x, rois)
-        batch_size = x.size(0)
-        x = F.relu(self.fc1(x.view(batch_size, -1)), inplace=True)
+        x = self.roi_pooling(x, rois)
+        x = F.relu(self.fc1(x.view(x.size(0), -1)), inplace=True)
         x = F.relu(self.fc2(x), inplace=True)
 
         # mil
@@ -60,22 +59,43 @@ class BaseNet(nn.Module):
             x = x.view(x.size(0), -1)
         mil_score0 = self.mil_score0(x)
         mil_score1 = self.mil_score1(x)
-        mil_score = F.softmax(mil_score0, dim=0) * F.softmax(mil_score1, dim=1)
-        im_cls_score = mil_score.sum(dim=0)
-        cls_loss = self.criterion(im_cls_score, labels.long())
+        # mil_score = F.softmax(mil_score0, dim=0) * F.softmax(mil_score1, dim=1)
+        # print(mil_score1)
+        # cat scores in each image
+        batch_output = torch.tensor([]).to('cuda')
+        tmp_list_0 = mil_score0[0].unsqueeze(0)
+        tmp_list_1 = mil_score1[0].unsqueeze(0)
+        for i in range(1, len(rois) + 1):
+            if i == len(rois):
+                tmp_list = F.softmax(tmp_list_0, dim=0) * F.softmax(tmp_list_1, dim=1)
+                batch_output = torch.cat((batch_output, tmp_list.sum(dim=0).unsqueeze(0)), 0)
+            elif rois[i][0] != rois[i-1][0]:
+                tmp_list = F.softmax(tmp_list_0, dim=0) * F.softmax(tmp_list_1, dim=1)
+                batch_output = torch.cat((batch_output, tmp_list.sum(dim=0).unsqueeze(0)), 0)
+                tmp_list_0 = mil_score0[i].unsqueeze(0)
+                tmp_list_1 = mil_score1[i].unsqueeze(0)
+            elif rois[i][0] == rois[i-1][0]:
+                tmp_list_0 = torch.cat((tmp_list_0, mil_score0[i].unsqueeze(0)), 0)
+                tmp_list_1 = torch.cat((tmp_list_1, mil_score1[i].unsqueeze(0)), 0)
 
-        # features = self.gap(features)
+        # batch_output = torch.cat((batch_output, tmp_list.sum(dim=0).unsqueeze(0)), 0)
+
+        # print(batch_output)
+        # print(labels)
+        cls_loss = self.mil_losses(batch_output, labels)
+
+        # features = self.gap(x)
         # features = features.view(features.size(0), -1)
         # # print(imgs.size(), features.size())
         
         # # classification
-        # imgs_clf = self.classifier(features)
-        # clf_loss = self.criterion(imgs_clf, labels.long())
+        # mil_score = self.classifier(features)
+        # cls_loss = self.criterion(mil_score, labels.long())
         # # print(clf_loss)
         if self.training:
             return cls_loss
-        else:
-            return mil_score, cls_loss
+        # else:
+        #     return mil_score, cls_loss
 
     def get_parameters(self, initial_lr=1.0):
         params = [

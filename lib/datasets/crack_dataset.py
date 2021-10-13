@@ -1,9 +1,10 @@
+from typing import Tuple
 import torch.utils.data as data
 import numpy as np
 from core.config import cfg
 from torch.utils.data.dataloader import default_collate
 import cv2
-
+import torch
 
 def get_minibatch_blob_names(is_training=True):
     """Return blob names in the order in which they are read by the data loader.
@@ -58,6 +59,7 @@ def _get_image_blob(roidb):
     image_path = cfg.IMAGEPATH
     for i in range(num_images):
         im = cv2.imread(image_path + roidb[i]['image']).astype(np.float32, copy=False)
+        im = cv2.resize(im, (400, 400))
         # im -= cfg.PIXEL_MEANS
         im /= 255.0
         im -= np.array([[[0.5068035, 0.5068035, 0.5068035]]])
@@ -77,7 +79,7 @@ def get_minibatch(roidb, num_classes):
     im_blob = _get_image_blob(roidb)
     blobs['data'] = im_blob
 
-    rois_blob = np.zeros((0, 5), dtype=np.float32)
+    rois_blob = np.zeros((0, 4), dtype=np.float32)
     labels_blob = np.zeros((0, 1), dtype=np.float32)
 
     num_images = len(roidb)
@@ -88,7 +90,7 @@ def get_minibatch(roidb, num_classes):
         for roi in rois:
             # bboxs: bach_idx, x1, y1, x2, y2
             rois_blob_this_image = np.array(
-                [im_i, roi[0], roi[1], roi[0] + roi[2], roi[1] + roi[3]])
+                [roi[0], roi[1], roi[0] + roi[2], roi[1] + roi[3]])
             rois_blob = np.vstack((rois_blob, rois_blob_this_image))
         labels_blob = np.vstack((labels_blob, labels))
 
@@ -113,9 +115,9 @@ class CrackDataSet(data.Dataset):
         # print(image.shape)
         # print(len(proposal['bbox']))
         blobs['data'] = blobs['data'].squeeze(axis=0)
-        blobs['rois'] = blobs['rois'].squeeze(axis=0).squeeze(axis=0)
+        blobs['rois'] = blobs['rois']
         blobs['labels'] = blobs['labels'].squeeze(axis=0).squeeze(axis=0)
-
+        # print(blobs)
         return blobs
 
     def __len__(self):
@@ -131,14 +133,25 @@ def collate_minibatch(list_of_blobs):
     # Because roidb consists of entries of variable length, it can't be batch into a tensor.
     # So we keep roidb in the type of "list of ndarray".
     lists = []
-    for blobs in list_of_blobs:
-        lists.append({'data': blobs.pop('data'),
-                      'rois': blobs.pop('rois'),
-                      'labels': blobs.pop('labels')})
+    for i in range(0, len(list_of_blobs)):
+        new_blob = dict({'data': list_of_blobs[i].pop('data'),
+                      'rois': list_of_blobs[i].pop('rois'),
+                      'labels': list_of_blobs[i].pop('labels')})
+        batch_ind = i * np.ones((new_blob['rois'].shape[0], 1))
+        new_blob['rois'] = np.hstack((batch_ind, new_blob['rois']))
+        lists.append(new_blob)
     for i in range(0, len(list_of_blobs), cfg.TRAIN.IMS_PER_BATCH):
         mini_list = lists[i:(i + cfg.TRAIN.IMS_PER_BATCH)]
-        minibatch = default_collate(mini_list)
-        for key in minibatch:
-            Batch[key].append(minibatch[key])
+        tmp_list = [item.copy() for item in mini_list]
+        for list_item in tmp_list:
+            del list_item['rois']
+        minibatch = default_collate(tmp_list)
 
+        # concat all rois in the catch
+        cat_result = torch.from_numpy(mini_list[0]['rois'])
+        for list_item in mini_list[1:]:
+            cat_result = torch.cat((cat_result, torch.from_numpy(list_item['rois'])), 0)
+        minibatch['rois'] = cat_result.to(torch.float32)
+        for key in minibatch:
+            Batch[key] = minibatch[key]
     return Batch

@@ -54,7 +54,7 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=1)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last_stride)
-        self.dim_out = 512
+        self.dim_out = 2048
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -83,7 +83,7 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
+        
         return x
 
     def load_param(self, model_path):

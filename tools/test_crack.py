@@ -157,8 +157,8 @@ if __name__ == '__main__':
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=True)
-        # collate_fn=collate_minibatch)
+        shuffle=True,
+        collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
     test_size = len(dataset)
 
@@ -170,6 +170,7 @@ if __name__ == '__main__':
     logger.info("loading checkpoint %s", args.load_ckpt)
     checkpoint = torch.load(args.load_ckpt)
     model.load_state_dict(checkpoint['model'])
+    model.cuda()
     model.eval()
 
     for _ in range(test_size):
@@ -180,10 +181,10 @@ if __name__ == '__main__':
             input_data = next(dataiterator)
 
         # print(input_data)
-        imgs_clf, _ = model(input_data['data'], input_data['labels'])
+        imgs_clf, _ = model(input_data['data'].to('cuda'), input_data['rois'].to('cuda'), input_data['labels'].to('cuda'))
 
         # net_outputs = model(**input_data)
-        scores = imgs_clf.data.numpy()
+        scores = imgs_clf.data.cpu().numpy()
         labels = input_data['labels']
 
         score = scores.sum(axis=0)

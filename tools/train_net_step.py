@@ -231,10 +231,10 @@ def main():
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        num_workers=cfg.DATA_LOADER.NUM_THREADS)
-        # collate_fn=collate_minibatch)
+        num_workers=cfg.DATA_LOADER.NUM_THREADS,
+        collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
-
+    # exit(0)
     timers['image'].toc()
     logger.info('Takes %.2f sec(s) to construct image data',
                 timers['image'].average_time)
@@ -300,23 +300,25 @@ def main():
     if args.load_ckpt:
         load_name = args.load_ckpt
         logging.info("loading checkpoint %s", load_name)
-        checkpoint = torch.load(
-            load_name, map_location=lambda storage, loc: storage)
-        net_utils.load_ckpt(pcl, checkpoint['model'])
-        if args.resume:
-            args.start_step = checkpoint['step'] + 1
-            if 'train_size' in checkpoint:  # For backward compatibility
-                if checkpoint['train_size'] != train_size:
-                    print('train_size value: %d different from the one in checkpoint: %d'
-                          % (train_size, checkpoint['train_size']))
+        checkpoint = torch.load(load_name)
+        pcl.load_state_dict(checkpoint['model'])
+        # checkpoint = torch.load(
+        #     load_name, map_location=lambda storage, loc: storage)
+        # net_utils.load_ckpt(pcl, checkpoint['model'])
+        # if args.resume:
+        #     args.start_step = checkpoint['step'] + 1
+        #     if 'train_size' in checkpoint:  # For backward compatibility
+        #         if checkpoint['train_size'] != train_size:
+        #             print('train_size value: %d different from the one in checkpoint: %d'
+        #                   % (train_size, checkpoint['train_size']))
 
-            # reorder the params in optimizer checkpoint's params_groups if needed
-            # misc_utils.ensure_optimizer_ckpt_params_order(param_names, checkpoint)
+        #     # reorder the params in optimizer checkpoint's params_groups if needed
+        #     # misc_utils.ensure_optimizer_ckpt_params_order(param_names, checkpoint)
 
-            # There is a bug in optimizer.load_state_dict on Pytorch 0.3.1.
-            # However it's fixed on master.
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            # misc_utils.load_optimizer_state_dict(optimizer, checkpoint['optimizer'])
+        #     # There is a bug in optimizer.load_state_dict on Pytorch 0.3.1.
+        #     # However it's fixed on master.
+        #     optimizer.load_state_dict(checkpoint['optimizer'])
+        #     # misc_utils.load_optimizer_state_dict(optimizer, checkpoint['optimizer'])
         del checkpoint
         torch.cuda.empty_cache()
 
@@ -413,6 +415,11 @@ def main():
 
             training_stats.IterTic()
             optimizer.zero_grad()
+            # for batchid, blob in enumerate(dataloader):
+            #     print(blob)
+            #     exit(0)
+            #     loss_basenet = pcl(input_data['data'].to('cuda'), input_data['labels'].to('cuda'))
+            #     loss_basenet.backward()
 
             for inner_iter in range(args.iter_size):
                 try:
@@ -427,9 +434,9 @@ def main():
 
                 # print(input_data)
                 # exit(0)
-                loss_basenet = pcl(input_data['data'].to('cuda'), input_data['labels'].to('cuda'))
+                loss_basenet = pcl(input_data['data'].to('cuda'), input_data['rois'].to('cuda'), input_data['labels'].to('cuda'))
                 # print(loss_basenet.unsqueeze(0))
-
+                # with torch.autograd.set_detect_anomaly(True):
                 loss_basenet.backward()
                 # net_outputs = pcl(**input_data)
                 # scores = net_outputs['mil_score'].data.cpu().numpy()
