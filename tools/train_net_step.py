@@ -262,6 +262,9 @@ def main():
     if cfg.CUDA:
         pcl.cuda()
 
+    print(pcl)
+    # exit(0)
+
     ### Optimizer ###
     bias_params = []
     bias_param_names = []

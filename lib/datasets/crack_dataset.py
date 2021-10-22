@@ -57,15 +57,17 @@ def _get_image_blob(roidb):
     num_images = len(roidb)
     processed_ims = []
     image_path = cfg.IMAGEPATH
+    blob = dict()
     for i in range(num_images):
         im = cv2.imread(image_path + roidb[i]['image']).astype(np.float32, copy=False)
         im = cv2.resize(im, (400, 400))
         # im -= cfg.PIXEL_MEANS
+        blob['image'] = image_path + roidb[i]['image']
         im /= 255.0
         im -= np.array([[[0.5068035, 0.5068035, 0.5068035]]])
         im /= np.array([[[0.16240637, 0.16240637, 0.16240637]]])
         processed_ims.append(im)
-    blob = im_list_to_blob(processed_ims)
+    blob['data'] = im_list_to_blob(processed_ims)
     return blob
 
 
@@ -77,7 +79,8 @@ def get_minibatch(roidb, num_classes):
 
     # Get the input image blob
     im_blob = _get_image_blob(roidb)
-    blobs['data'] = im_blob
+    blobs['data'] = im_blob['data']
+    blobs['image'] = im_blob['image']
 
     rois_blob = np.zeros((0, 4), dtype=np.float32)
     labels_blob = np.zeros((0, 1), dtype=np.float32)
@@ -115,7 +118,7 @@ class CrackDataSet(data.Dataset):
         # print(image.shape)
         # print(len(proposal['bbox']))
         blobs['data'] = blobs['data'].squeeze(axis=0)
-        blobs['rois'] = blobs['rois']
+        # blobs['rois'] = blobs['rois']
         blobs['labels'] = blobs['labels'].squeeze(axis=0).squeeze(axis=0)
         # print(blobs)
         return blobs
@@ -136,6 +139,7 @@ def collate_minibatch(list_of_blobs):
     for i in range(0, len(list_of_blobs)):
         new_blob = dict({'data': list_of_blobs[i].pop('data'),
                       'rois': list_of_blobs[i].pop('rois'),
+                      'image': list_of_blobs[i].pop('image'),
                       'labels': list_of_blobs[i].pop('labels')})
         batch_ind = i * np.ones((new_blob['rois'].shape[0], 1))
         new_blob['rois'] = np.hstack((batch_ind, new_blob['rois']))

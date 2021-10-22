@@ -1,9 +1,9 @@
 IMAGEPATH:
   '/home/syb/documents/Crack_Image_WSOD/data/cut/combine/'
 PROPOSAL_FILE_PATH:
-  '/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_new.pkl'
+  '/home/syb/documents/Crack_Image_WSOD/data/data_yinlie_test.pkl'
 TEST_PROPOSAL_FILE_PATH:
-  '/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie_new.pkl'
+  '/home/syb/documents/Crack_Image_WSOD/data/data_test_yinlie_test.pkl'
 MODEL:
   TYPE: generalized_rcnn
   CONV_BODY: vgg16.dilated_conv5_body
@@ -14,11 +14,11 @@ VGG:
 SOLVER:
   WEIGHT_DECAY: 0.0005
   LR_POLICY: steps_with_decay
-  BASE_LR: 0.0025
+  BASE_LR: 0.005
   GAMMA: 0.2
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 10000
-  STEPS: [0, 7000]
+  MAX_ITER: 14000
+  STEPS: [0, 10000]
 FAST_RCNN:
   ROI_BOX_HEAD: vgg16.roi_2mlp_head
   ROI_XFORM_METHOD: RoIPoolF
