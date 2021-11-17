@@ -22,10 +22,10 @@ import utils.blob as blob_utils
 import numpy as np
 
 from datasets.crack_dataset import CrackDataSet, collate_minibatch
+from datasets.cifa_dataset import cifar10_dataset
 from modeling.basenet import BaseNet
 from grad_cam import ShowGradCam
-from torch.autograd import Variable
-
+from torchvision import transforms
 # OpenCL may be enabled by default in OpenCV3; disable it because it's not
 # thread safe and causes unwanted GPU memory allocations.
 cv2.ocl.setUseOpenCL(False)
@@ -149,106 +149,65 @@ if __name__ == '__main__':
                 args.load_detectron))
             time.sleep(10)
 
-    test_proposal_files = pickle.load(open(cfg.TEST_PROPOSAL_FILE_PATH, 'rb'))
-    dataset = CrackDataSet(
-        test_proposal_files,
-        cfg.MODEL.NUM_CLASSES,
-        training=True)
-    # num_epoch = 1     # number of epochs to train on
-    batch_size = 1  # training batch size
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=collate_minibatch)
+    _, dataloader = cifar10_dataset()
     dataiterator = iter(dataloader)
-    test_size = len(dataset)
 
-    tp = 0
-    fp = 0
-    tn = 0
-    fn = 0
     model = BaseNet()
     logger.info("loading checkpoint %s", args.load_ckpt)
     checkpoint = torch.load(args.load_ckpt)
     model.load_state_dict(checkpoint['model'])
     model.cuda()
     model.eval()
-    # print(model)
-    # exit(0)
 
-
+    correct = 0
+    noncorrect = 0
     cnt = 0
 
-    for _ in range(test_size):
+    mean = [0.5070751592371323, 0.48654887331495095, 0.4409178433670343]
+    std = [0.2673342858792401, 0.2564384629170883, 0.27615047132568404]
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.Normalize(mean, std)])
+    labels = pickle.load(open('/home/syb/documents/Crack_Image_WSOD/data/cifar10_images/labels.pkl', 'rb'))
+
+    for _ in range(500):
         if cnt >= 10:
             exit(0)
-        try:
-            input_data = next(dataiterator)
-        except StopIteration:
-            dataiterator = iter(dataloader)
-            input_data = next(dataiterator)
+        # try:
+        #     input_data = next(dataiterator)
+        # except StopIteration:
+        #     dataiterator = iter(dataloader)
+        #     input_data = next(dataiterator)
+        image_name = '/home/syb/documents/Crack_Image_WSOD/data/cifar10_images/img' + str(cnt) + '.png'
+        image = cv2.imread(image_name)
+        input_data = transform(image).unsqueeze(0)
+        label = torch.Tensor([labels[cnt]])
+        # print(input_data)
+        # print(label)
 
         gradCam = ShowGradCam(model.base_network.layer4[2].conv3)
+        # print(input_data[0])
 
-        im = cv2.imread(input_data['image'][0])
-        # im = cv2.imread('/home/syb/documents/Crack_Image_WSOD/data/cut/combine/0T9216418750182619-2-10.jpg')
-        im = cv2.resize(im, (400, 400))
         cnt += 1
-        imgs_clf, loss = model(input_data['data'].to('cuda'), input_data['rois'].to('cuda'), input_data['labels'].to('cuda'))
+        imgs_clf, _ = model(input_data.to('cuda'), label.to('cuda'))
 
-        # print(imgs_clf.shape)
-        # exit(0)
+        scores = imgs_clf.data.cpu().numpy()
 
-        idx = np.argmax(imgs_clf.cpu().data.numpy())
+        clf = np.argmax(scores)
 
+        label = label.numpy().squeeze(axis=0)
+        # print(clf, label)
         model.zero_grad()
-        # imgs_clf = imgs_clf.squeeze()
-
-        imgs_clf = imgs_clf.sigmoid()
-        print(imgs_clf)
-
-        labels = input_data['labels']
-        label = labels.numpy().squeeze(axis=0)
-        print(cnt, ' label: ', label)
-        print(cnt, ' predict: ', idx)
-        # if label == 1.0:
-        #     imgs_clf[1] = 1
-        #     imgs_clf[0] = 0
-        # else:
-        #     imgs_clf[0] = 1
-        #     imgs_clf[1] = 0
-        # print(imgs_clf)
-        # exit(0)
-        class_loss = imgs_clf[0, idx]
-        # print(class_loss)
-        class_loss.backward()
-        # imgs_clf.backward(imgs_clf.clone().detach(), retain_graph=True)
-        # imgs_clf.backward(retain_graph=True)
-        fc_weights = model.classifier.weight.unsqueeze(-1).unsqueeze(-1)#.cpu().data.numpy()
-
-        gradCam.show_on_img(im, str(cnt), fc_weights)
-        cv2.imwrite('output_pic/' + str(cnt) + '_origin.jpg',im)
-
-        # exit(0)
-
-        # scores = imgs_clf.data.cpu().numpy()
-        # labels = input_data['labels']
-
-        # score = scores.sum(axis=0)
-        # label = labels.numpy().squeeze(axis=0)
-
-        # print(score, label)
         
-        # if label == 1.0 and score[1] > score[0]:
-        #     tp += 1
-        # if label == 0.0 and score[1] > score[0]:
-        #     fp += 1
-        # if label == 0.0 and score[0] > score[1]:
-        #     tn += 1
-        # if label == 1.0 and score[0] > score[1]:
-        #     fn += 1
+        imgs_clf[0, clf].backward()
 
-    # print("TP: %3d, FP: %3d, TN: %3d, FN: %3d\nAccuracy : %3d/%3d, %.1f%%\nRecall   : %3d/%3d, %.1f%%\nPrecision: %3d/%3d, %.1f%%\n" %
-    #       (tp, fp, tn, fn, tp + tn, tp + fp + tn + fn, (tp + tn) / (tp + fp + tn + fn) * 100,
-    #        tp, tp + fn, tp / (tp + fn) * 100, tp, tp + fp, tp / (tp + fp) * 100))
+        gradCam.show_on_img(image, str(cnt))
+        cv2.imwrite('output_pic/' + str(cnt) + '_origin.jpg', image)
+
+        if clf == label:
+            correct += 1
+        else:
+            noncorrect += 1
+
+    print("Accuracy : %3d/%3d, %.1f%%" % (correct,
+          correct + noncorrect, correct * 100 / (correct + noncorrect)))

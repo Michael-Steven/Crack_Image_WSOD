@@ -1,5 +1,6 @@
 import _init_paths
 from datasets.crack_dataset import CrackDataSet, collate_minibatch
+from datasets.cifa_dataset import cifar10_dataset
 from modeling.model_builder import Generalized_RCNN
 from modeling.basenet import BaseNet
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
@@ -209,41 +210,33 @@ def main():
     assert_and_infer_cfg()
 
     ### Dataset ###
-    timers = defaultdict(Timer)
-    timers['image'].tic()
+    # timers = defaultdict(Timer)
+    # timers['image'].tic()
+    # proposal_files = pickle.load(open(cfg.PROPOSAL_FILE_PATH, 'rb'))
+    # dataset = CrackDataSet(
+    #     proposal_files,
+    #     cfg.MODEL.NUM_CLASSES,
+    #     training=True)
+    # dataloader = torch.utils.data.DataLoader(
+    #     dataset,
+    #     batch_size=args.batch_size,
+    #     shuffle=True,
+    #     drop_last=True,
+    #     num_workers=cfg.DATA_LOADER.NUM_THREADS,
+    #     collate_fn=collate_minibatch)
+    # dataiterator = iter(dataloader)
+    # timers['image'].toc()
+    # logger.info('Takes %.2f sec(s) to construct image data',
+    #             timers['image'].average_time)
 
-    proposal_files = pickle.load(open(cfg.PROPOSAL_FILE_PATH, 'rb'))
-    # image_path = '/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/cut/combine/'
-    # proposal_files = pickle.load(open('/Users/michaelshan/Documents/BUAA/实验室项目/数据集/crack_data/data_yinlie.pkl','rb'))
-    # for image_item in proposal_files:
-    #     image_name = image_item['image']
-    #     # print(image_path + image_name)
-    #     image = cv2.imread(image_path + image_name)
-    #     images.append(image)
-    dataset = CrackDataSet(
-        proposal_files,
-        cfg.MODEL.NUM_CLASSES,
-        training=True)
-    # num_epoch = 1     # number of epochs to train on
-    # batch_size = 16  # training batch size
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True,
-        num_workers=cfg.DATA_LOADER.NUM_THREADS,
-        collate_fn=collate_minibatch)
+    dataloader, _ = cifar10_dataset()
     dataiterator = iter(dataloader)
-    # exit(0)
-    timers['image'].toc()
-    logger.info('Takes %.2f sec(s) to construct image data',
-                timers['image'].average_time)
 
     # for _ in range(num_epoch):
     #     # model.train()
     #     for batchsz, (image, proposal) in enumerate(dataloader):
     #         print("第 {} 个Batch size, 图片大小 {}, 边界框预测数量 {}".format(batchsz, image.shape, len(proposal['bbox'])))
-    train_size = len(dataset)
+    train_size = len(dataloader)
 
     random.seed(cfg.RNG_SEED)
     np.random.seed(cfg.RNG_SEED)
@@ -377,11 +370,6 @@ def main():
         logger.info('Training starts !')
         step = args.start_step
 
-        tp = 0
-        fp = 0
-        tn = 0
-        fn = 0
-
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -437,10 +425,11 @@ def main():
 
                 # print(input_data)
                 # exit(0)
-                loss_basenet = pcl(input_data['data'].to('cuda'), input_data['rois'].to('cuda'), input_data['labels'].to('cuda'))
+                loss_basenet = pcl(input_data[0].to('cuda'), input_data[1].to('cuda'))
                 # print(loss_basenet.unsqueeze(0))
                 # with torch.autograd.set_detect_anomaly(True):
                 loss_basenet.backward()
+                # print(loss_basenet)
                 # net_outputs = pcl(**input_data)
                 # scores = net_outputs['mil_score'].data.cpu().numpy()
                 # labels = input_data['labels']
@@ -450,18 +439,11 @@ def main():
                 # # print(score)
                 # # print(label)
 
-                # # if label[1] == 1 and score[1] > score[0]:
-                # #     tp += 1
-                # # if label[0] == 1 and score[1] > score[0]:
-                # #     fp += 1
-                # # if label[0] == 1 and score[0] > score[1]:
-                # #     tn += 1
-                # # if label[1] == 1 and score[0] > score[1]:
-                # #     fn += 1
                 net_outputs = {}
                 net_outputs['losses'] = {}
                 net_outputs['losses']['loss_im_cls'] = loss_basenet.unsqueeze(0)
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
+
                 # loss = net_outputs['total_loss']
                 # # if loss.item() > 10:
                 # #     import pdb

@@ -22,6 +22,7 @@ import utils.blob as blob_utils
 import numpy as np
 
 from datasets.crack_dataset import CrackDataSet, collate_minibatch
+from datasets.cifa_dataset import cifar10_dataset
 from modeling.basenet import BaseNet
 
 # OpenCL may be enabled by default in OpenCV3; disable it because it's not
@@ -129,8 +130,8 @@ if __name__ == '__main__':
 
     assert_and_infer_cfg()
 
-    logger.info('Testing with config:')
-    logger.info(pprint.pformat(cfg))
+    # logger.info('Testing with config:')
+    # logger.info(pprint.pformat(cfg))
 
     # For test_engine.multi_gpu_test_net_on_dataset
     args.test_net_file, _ = os.path.splitext(__file__)
@@ -147,25 +148,28 @@ if __name__ == '__main__':
                 args.load_detectron))
             time.sleep(10)
 
-    test_proposal_files = pickle.load(open(cfg.TEST_PROPOSAL_FILE_PATH, 'rb'))
-    dataset = CrackDataSet(
-        test_proposal_files,
-        cfg.MODEL.NUM_CLASSES,
-        training=True)
-    # num_epoch = 1     # number of epochs to train on
-    batch_size = 1  # training batch size
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=collate_minibatch)
-    dataiterator = iter(dataloader)
-    test_size = len(dataset)
+    # test_proposal_files = pickle.load(open(cfg.TEST_PROPOSAL_FILE_PATH, 'rb'))
+    # dataset = CrackDataSet(
+    #     test_proposal_files,
+    #     cfg.MODEL.NUM_CLASSES,
+    #     training=True)
+    # # num_epoch = 1     # number of epochs to train on
+    # batch_size = 1  # training batch size
+    # dataloader = torch.utils.data.DataLoader(
+    #     dataset,
+    #     batch_size=batch_size,
+    #     shuffle=True,
+    #     collate_fn=collate_minibatch)
+    # dataiterator = iter(dataloader)
+    # test_size = len(dataset)
 
-    tp = 0
-    fp = 0
-    tn = 0
-    fn = 0
+    _, dataloader = cifar10_dataset()
+    dataiterator = iter(dataloader)
+
+    # tp = 0
+    # fp = 0
+    # tn = 0
+    # fn = 0
     model = BaseNet()
     logger.info("loading checkpoint %s", args.load_ckpt)
     checkpoint = torch.load(args.load_ckpt)
@@ -173,34 +177,33 @@ if __name__ == '__main__':
     model.cuda()
     model.eval()
 
-    for _ in range(test_size):
+    correct = 0
+    noncorrect = 0
+
+    for _ in range(500):
         try:
             input_data = next(dataiterator)
         except StopIteration:
             dataiterator = iter(dataloader)
             input_data = next(dataiterator)
 
-        # print(input_data)
-        imgs_clf, _ = model(input_data['data'].to('cuda'), input_data['rois'].to('cuda'), input_data['labels'].to('cuda'))
+        # print(input_data[0].shape)
+        # exit(0)
+        imgs_clf, _ = model(input_data[0].to('cuda'), input_data[1].to('cuda'))
 
-        # net_outputs = model(**input_data)
         scores = imgs_clf.data.cpu().numpy()
-        labels = input_data['labels']
 
-        score = scores.sum(axis=0)
+        clf = np.argmax(scores)
+        labels = input_data[1]
+
+        # score = scores.sum(axis=0)
         label = labels.numpy().squeeze(axis=0)
 
-        print(score, label)
-        
-        if label == 1.0 and score[1] > score[0]:
-            tp += 1
-        if label == 0.0 and score[1] > score[0]:
-            fp += 1
-        if label == 0.0 and score[0] > score[1]:
-            tn += 1
-        if label == 1.0 and score[0] > score[1]:
-            fn += 1
+        print(clf, label)
+        if clf == label:
+            correct += 1
+        else:
+            noncorrect += 1
 
-    print("TP: %3d, FP: %3d, TN: %3d, FN: %3d\nAccuracy : %3d/%3d, %.1f%%\nRecall   : %3d/%3d, %.1f%%\nPrecision: %3d/%3d, %.1f%%\n" %
-          (tp, fp, tn, fn, tp + tn, tp + fp + tn + fn, (tp + tn) / (tp + fp + tn + fn) * 100,
-           tp, tp + fn, tp / (tp + fn) * 100, tp, tp + fp, tp / (tp + fp) * 100))
+    print("Accuracy : %3d/%3d, %.1f%%" % (correct,
+          correct + noncorrect, correct * 100 / (correct + noncorrect)))
